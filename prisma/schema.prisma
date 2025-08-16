@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum ScanStatus {
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  email       String         @unique
+  name        String?
+  points      Int            @default(0)
+  scans       BottleScan[]
+  transactions Transaction[]
+  createdAt   DateTime       @default(now())
+}
+
+model BottleScan {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  user            User        @relation(fields: [userId], references: [id])
+  userId          String      @db.ObjectId
+  brand           String
+  brandConfidence Float
+  diameterMm      Float
+  heightMm        Float
+  volumeMl        Float
+  pointsAwarded   Int
+  status          ScanStatus
+  transaction     Transaction?
+  createdAt       DateTime    @default(now())
+}
+
+model Transaction {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  user      User       @relation(fields: [userId], references: [id])
+  userId    String     @db.ObjectId
+  scan      BottleScan @relation(fields: [scanId], references: [id])
+  scanId    String     @unique @db.ObjectId
+  amount    Int
+  createdAt DateTime   @default(now())
+}
