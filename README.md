@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# ♻️ SmartBin – AI-Powered Recycling System
 
-## Getting Started
+SmartBin adalah sistem bank sampah berbasis Web, AI, dan IoT untuk memvalidasi serta memberi reward setiap kali user membuang botol plastik.
 
-First, run the development server:
+## 🏗️ Arsitektur Singkat
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Next.js (frontend) ↔ FastAPI (backend) ↔ MongoDB
+                               ↘︎ Roboflow (YOLO model)
+                               ↘︎ OpenCV measurement
+                               ↘︎ IoT (WebSocket → ESP32 simulator)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* Frontend : Next.js App Router + WebSocket client untuk status realtime.
+* Backend  : FastAPI + Motor (MongoDB), layanan OpenCV, Roboflow, IoT.
+* IoT      : Simulator ESP32 via WebSocket (port 8080) untuk membuka / menutup tutup tong.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🚀 Quick Start (Docker Compose)
 
-## Learn More
+```bash
+# salin file env contoh
+cp .env.example .env
+# isi ROBOFLOW_API_KEY Anda
 
-To learn more about Next.js, take a look at the following resources:
+# build & start all services
+docker compose up --build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Service yang berjalan:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Service | Port | Deskripsi |
+|---------|------|-----------|
+| Frontend (Next.js) | 3000 | UI & kamera web |
+| Backend (FastAPI)  | 8000 | REST API + WebSocket |
+| MongoDB            | 27017 | Database |
+| Redis              | 6379  | Cache (opsional) |
+| IoT Simulator      | 8080 | WebSocket ESP32 virtual |
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ⚙️ Environment Variables
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+ROBOFLOW_API_KEY=<your_key>
+MONGODB_URL=mongodb://mongodb:27017/smartbin
+IOT_WS_URL=ws://iot_simulator:8080
+```
+
+`ROBOFLOW_API_KEY` bisa didapat dari halaman model [klasifikasi-per-merk/3](https://universe.roboflow.com/uascv/klasifikasi-per-merk/model/3).
+
+---
+
+## 📚 API Reference
+
+### Health
+```
+GET /health → { "status": "healthy" }
+```
+
+### Scan Bottle
+```
+POST /scan
+Header : Content-Type: multipart/form-data
+         X-User-Email: user@example.com (optional)
+Body   : image=<file>
+```
+Response `200 OK` (example)
+```json
+{
+  "is_valid": true,
+  "brand": "aqua",
+  "confidence": 0.92,
+  "diameter_mm": 64.5,
+  "height_mm": 185.2,
+  "volume_ml": 600.4,
+  "points_awarded": 10,
+  "total_points": 120
+}
+```
+
+### WebSocket Realtime
+```
+ws://<backend-host>/ws/status
+```
+Client akan menerima pesan JSON setiap selesai proses scan:
+```json
+{
+  "type": "scan_result",
+  "data": {
+    "brand": "aqua",
+    "confidence": 0.92,
+    "diameter_mm": 64.5,
+    "height_mm": 185.2,
+    "volume_ml": 600.4,
+    "points": 10,
+    "total_points": 120,
+    "valid": true,
+    "events": ["ACK", "lid_opened", "sensor_triggered", "lid_closed"],
+    "email": "user@example.com"
+  }
+}
+```
+
+---
+
+## 🤖 IoT Simulator
+
+Simulator berada di folder `iot_simulator/` dan otomatis berjalan via docker compose.
+
+Manual run:
+```bash
+cd iot_simulator
+python websocket_server.py
+```
+Perintah JSON:
+* `{ "cmd": "open" }` – membuka tutup, akan mengirim event berurutan (`lid_opened`, `sensor_triggered`, `lid_closed`).
+* `{ "cmd": "close" }` – langsung menutup tutup.
+
+---
+
+## 🧪 Testing
+
+```bash
+docker compose exec backend pytest -q
+```
+Unit test berada di `backend/tests/` dan mencakup validation engine.
+
+---
+
+## 📄 Lisensi
+MIT © 2025 SmartBin Team
