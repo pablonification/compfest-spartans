@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from ..domain.interfaces import UserRepository, AuthService, OAuthService
 from ..repositories.user_repository import MongoDBUserRepository
 from .auth_service import JWTAuthService
 from .oauth_service import GoogleOAuthService
+
+if TYPE_CHECKING:
+    from .user_service import UserService
 
 
 class ServiceFactory:
@@ -40,7 +43,7 @@ class ServiceFactory:
             self._oauth_service = GoogleOAuthService()
         return self._oauth_service
     
-    def create_user_service(self) -> "UserService":
+    def create_user_service(self) -> UserService:
         """Create a user service with the configured repository."""
         from .user_service import UserService
         return UserService(user_repository=self.user_repository)
@@ -71,6 +74,6 @@ def get_oauth_service() -> OAuthService:
     return service_factory.oauth_service
 
 
-def get_user_service() -> "UserService":
+def get_user_service() -> UserService:
     """Get the global user service instance."""
     return service_factory.create_user_service()
