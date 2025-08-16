@@ -13,6 +13,9 @@ from ..schemas.scan import ScanResponse
 from ..services.iot_client import SmartBinClient
 from ..services.ws_manager import manager
 from ..services.reward_service import add_points
+import base64, binascii
+from pathlib import Path
+from uuid import uuid4
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -41,9 +44,16 @@ async def scan_bottle(
     if not content:
         raise HTTPException(status_code=400, detail="Empty image upload")
 
-    # 2. OpenCV measurement
+    # 2. OpenCV measurement (with debug preview)
     try:
-        measurement = bottle_measurer.measure(content)
+        measurement, preview_bytes = bottle_measurer.measure(content, return_debug=True)
+        preview_b64: str | None = base64.b64encode(preview_bytes).decode()
+        # save preview image to disk
+        debug_dir = Path("debug_images")
+        debug_dir.mkdir(exist_ok=True)
+        filename = f"{uuid4().hex}.jpg"
+        (debug_dir / filename).write_bytes(preview_bytes)
+        debug_url = f"/debug/{filename}"
     except MeasurementError as exc:
         logger.warning("Measurement failed: %s", exc)
         raise HTTPException(status_code=422, detail="Unable to measure bottle") from exc
@@ -97,6 +107,8 @@ async def scan_bottle(
             "valid": validation_result.is_valid,
             "events": iot_events,
             "email": x_user_email,
+            "debug_url": debug_url,
+            "debug_image": preview_b64,
         }
     })
 
@@ -111,4 +123,6 @@ async def scan_bottle(
         volume_ml=validation_result.measurement.volume_ml,
         points_awarded=validation_result.points_awarded,
         total_points=user_total_points,
+        debug_image=preview_b64,
+        debug_url=debug_url,
     )

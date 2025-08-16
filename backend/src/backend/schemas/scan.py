@@ -16,3 +16,5 @@ class ScanResponse(BaseModel):
 
     points_awarded: int
     total_points: Optional[int] = None
+    debug_image: str | None = None  # base64 JPEG with reference/bottle bboxes
+    debug_url: str | None = None
