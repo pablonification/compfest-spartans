@@ -64,3 +64,10 @@ class UserAlreadyExistsError(HTTPException):
     
     def __init__(self, detail: str = "User already exists"):
         super().__init__(detail=detail, status_code=status.HTTP_409_CONFLICT)
+
+
+class InvalidUserDataError(HTTPException):
+    """Invalid user data error."""
+    
+    def __init__(self, detail: str = "Invalid user data"):
+        super().__init__(detail=detail, status_code=status.HTTP_400_BAD_REQUEST)
