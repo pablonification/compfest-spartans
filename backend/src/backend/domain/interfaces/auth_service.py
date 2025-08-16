@@ -18,7 +18,7 @@ class AuthService(Protocol):
         """Create a JWT refresh token for a user."""
         ...
     
-    def create_token_pair(self, user_id: str, email: str) -> TokenResponse:
+    def create_token_pair(self, user_id: str, email: str, name: Optional[str] = None) -> TokenResponse:
         """Create both access and refresh tokens for a user."""
         ...
     

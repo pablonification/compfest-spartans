@@ -311,3 +311,30 @@ class UserService:
         except Exception as e:
             logger.error("Failed to delete user %s: %s", user_id, e)
             return False
+    
+    async def update_user_last_login(self, user_id: str) -> bool:
+        """
+        Update user's last login timestamp.
+        
+        Args:
+            user_id: User's unique identifier
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Update last login timestamp
+            updated_user = await self.user_repository.update_user(
+                user_id, 
+                {"last_login": datetime.now(timezone.utc)}
+            )
+            
+            if updated_user:
+                logger.info("Updated last login for user: %s", user_id)
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error("Failed to update last login for user %s: %s", user_id, e)
+            return False

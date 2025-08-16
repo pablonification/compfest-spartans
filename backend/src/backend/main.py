@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 
-from .routers import health, scan
+from .routers import health, scan, auth
 from .db.mongo import connect_to_mongo, close_mongo_connection
 
 app = FastAPI()
 
 app.include_router(health.router)
 app.include_router(scan.router)
+app.include_router(auth.router)
 
 
 @app.on_event("startup")

@@ -13,6 +13,7 @@ class User(MongoBaseModel):
     name: Optional[str] = None
     points: int = 0
     google_id: Optional[str] = None  # Google OAuth ID
+    last_login: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
