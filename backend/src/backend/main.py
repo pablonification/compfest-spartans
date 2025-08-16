@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from .routers import health, scan, auth
+from .routers import health, scan, auth, ws
 from .db.mongo import connect_to_mongo, close_mongo_connection
 from .middleware.auth_middleware import AuthMiddleware
 
@@ -12,6 +12,7 @@ app.add_middleware(AuthMiddleware)
 app.include_router(health.router)
 app.include_router(scan.router)
 app.include_router(auth.router)
+app.include_router(ws.router)
 
 
 @app.on_event("startup")

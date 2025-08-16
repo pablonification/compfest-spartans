@@ -257,6 +257,44 @@ class UserService:
             logger.error("Failed to update points for user %s: %s", user_id, e)
             return None
     
+    async def add_points(self, user_id: str, points: int) -> Optional[User]:
+        """
+        Add points to user's balance (positive only).
+        
+        Args:
+            user_id: User's unique identifier
+            points: Points to add (must be positive)
+            
+        Returns:
+            User: Updated user instance if successful, None otherwise
+            
+        Raises:
+            ValueError: If points is negative
+        """
+        if points < 0:
+            raise ValueError("Points to add must be positive")
+        
+        try:
+            # Verify user exists
+            existing_user = await self.user_repository.get_user_by_id(user_id)
+            if not existing_user:
+                logger.warning("Cannot add points to non-existent user: %s", user_id)
+                return None
+            
+            # Add points (this will increment the current balance)
+            updated_user = await self.user_repository.update_user_points(user_id, points)
+            
+            if updated_user:
+                logger.info("Added %d points to user %s. New total: %d", 
+                          points, user_id, updated_user.points)
+                return updated_user
+            
+            return None
+            
+        except Exception as e:
+            logger.error("Failed to add points to user %s: %s", user_id, e)
+            return None
+    
     async def get_user_leaderboard(self, limit: int = 10) -> List[User]:
         """
         Get top users by points for leaderboard.
