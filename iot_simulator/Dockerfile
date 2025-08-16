@@ -5,8 +5,8 @@ WORKDIR /app
 # Install placeholder dependencies (websockets for future simulator)
 RUN pip install --no-cache-dir websockets
 
-COPY . .
+COPY websocket_server.py ./
 
 EXPOSE 8080
 
-CMD ["python", "-m", "http.server", "8080"]
+CMD ["python", "websocket_server.py"]
