@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, status, Header
+from fastapi import APIRouter, File, UploadFile, HTTPException, status, Request
 
 from ..services.opencv_service import BottleMeasurer, MeasurementError
 from ..services.roboflow_service import RoboflowClient
@@ -24,10 +24,12 @@ smartbin_client = SmartBinClient()
 
 @router.post("/scan", response_model=ScanResponse, status_code=status.HTTP_200_OK)
 async def scan_bottle(
+    request: Request,
     image: UploadFile = File(...),
-    x_user_email: Optional[str] = Header(None, alias="X-User-Email"),
 ) -> Any:  # noqa: WPS110
     """Handle bottle scanning.
+
+    Requires authentication. User context is injected by auth middleware.
 
     1. Read image bytes.
     2. Run OpenCV measurement.
@@ -63,9 +65,13 @@ async def scan_bottle(
     if validation_result.is_valid:
         iot_events = await smartbin_client.open_bin()
 
+    # Get authenticated user from request state
+    user = request.state.user
+    user_email = user.email
+    
     user_total_points: Optional[int] = None
-    if validation_result.is_valid and x_user_email:
-        user_total_points = await add_points(x_user_email, validation_result.points_awarded)
+    if validation_result.is_valid:
+        user_total_points = await add_points(user_email, validation_result.points_awarded)
 
     # 6. Store to MongoDB (best-effort)
     try:
@@ -78,7 +84,7 @@ async def scan_bottle(
                 "valid": validation_result.is_valid,
                 "reason": validation_result.reason,
                 "iot_events": iot_events,
-                "user_email": x_user_email,
+                "user_email": user_email,
             })
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to save scan to DB: %s", exc)
@@ -96,7 +102,7 @@ async def scan_bottle(
             "total_points": user_total_points,
             "valid": validation_result.is_valid,
             "events": iot_events,
-            "email": x_user_email,
+            "email": user_email,
         }
     })
 

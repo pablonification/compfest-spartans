@@ -263,14 +263,15 @@ async def get_user_profile(
         HTTPException: If user profile retrieval fails
     """
     try:
-        # This endpoint will be protected by auth middleware
-        # User context will be injected by the middleware
-        # For now, we'll return a placeholder response
-        # TODO: Implement auth middleware to extract user from JWT token
+        # User context is injected by the auth middleware
+        user = request.state.user
         
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="User profile endpoint requires authentication middleware"
+        return UserProfileResponse(
+            id=str(user.id),
+            email=user.email,
+            name=user.name,
+            points=user.points,
+            created_at=user.created_at.isoformat()
         )
         
     except Exception as e:
