@@ -2,14 +2,21 @@
 
 import { useEffect, useState } from 'react';
 
-const WS_PATH = `${process.env.NEXT_PUBLIC_API_URL.replace('http', 'ws')}/ws/status`;
-
+// Fix: process.env.* is only available at build time, not at runtime in the browser.
+// Solution: Use NEXT_PUBLIC_ envs only inside functions/components, not at the top level.
 export default function ScanPage() {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('Idle');
   const [result, setResult] = useState(null);
 
+  // Compute WS_PATH inside the component to ensure env is available
+  const WS_PATH =
+    typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
+      ? `${process.env.NEXT_PUBLIC_API_URL.replace('http', 'ws')}/ws/status`
+      : '';
+
   useEffect(() => {
+    if (!WS_PATH) return;
     const ws = new WebSocket(WS_PATH);
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -20,7 +27,8 @@ export default function ScanPage() {
     };
     ws.onerror = () => setStatus('WebSocket error');
     return () => ws.close();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [WS_PATH]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +37,12 @@ export default function ScanPage() {
     const formData = new FormData();
     formData.append('image', file);
 
-    const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/scan`, {
+    const apiUrl =
+      typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
+        ? process.env.NEXT_PUBLIC_API_URL
+        : '';
+
+    const resp = await fetch(`${apiUrl}/scan`, {
       method: 'POST',
       headers: {
         'X-User-Email': 'tester@example.com',
