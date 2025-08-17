@@ -9,7 +9,7 @@ export async function GET(request) {
     }
     
     // Use the correct backend URL from environment
-    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000'}/notifications/unread-count`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_CONTAINER_API_URL || 'http://backend:8000'}/notifications/unread-count`;
     
     console.log('Calling backend URL:', backendUrl);
     console.log('Token:', token ? `${token.substring(0, 10)}...` : 'null');

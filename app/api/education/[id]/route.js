@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export async function GET(_, { params }) {
   try {
     const { id } = params;
-    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/education/${id}`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_CONTAINER_API_URL || 'http://localhost:8000'}/education/${id}`;
 
     const res = await fetch(backendUrl);
     if (!res.ok) {

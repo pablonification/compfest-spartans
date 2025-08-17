@@ -18,7 +18,7 @@ export default function WebSocketTest() {
 
     try {
       // Fix WebSocket URL to use localhost instead of container name
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000';
       const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
       const ws = new WebSocket(`${wsUrl}/ws/status`);
       

@@ -4,7 +4,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit') || 50;
-    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/education?limit=${limit}`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_CONTAINER_API_URL || 'http://localhost:8000'}/education?limit=${limit}`;
 
     const res = await fetch(backendUrl);
     if (!res.ok) {

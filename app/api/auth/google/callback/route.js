@@ -13,7 +13,7 @@ export async function GET(request) {
     }
 
     // Proxy the request to the backend
-    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/google/callback?code=${code}`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_CONTAINER_API_URL || 'http://localhost:8000'}/auth/google/callback?code=${code}`;
     
     const backendResponse = await fetch(backendUrl, {
       method: 'GET',

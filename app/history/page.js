@@ -32,13 +32,13 @@ export default function HistoryPage() {
       
       // Fetch transactions and summary in parallel
       const [transactionsResponse, summaryResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/scan/transactions`, {
+        fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/scan/transactions`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/scan/transactions/summary`, {
+        fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/scan/transactions/summary`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

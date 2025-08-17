@@ -88,7 +88,7 @@ export default function ScanPage() {
     if (!token) return;
     
     // Fix WebSocket URL to use localhost instead of container name
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const apiUrl = process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000';
     const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
     const fullWsUrl = `${wsUrl}/ws/status`;
     
@@ -289,7 +289,7 @@ export default function ScanPage() {
       const formData = new FormData();
       formData.append('image', capturedImage, 'bottle.jpg');
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/scan`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/scan`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -585,7 +585,7 @@ export default function ScanPage() {
                     <div>
                       <span className="text-gray-500 text-sm">Debug Image:</span>
                       <img
-                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${result.debug_url}`}
+                        src={`${process.env.NEXT_PUBLIC_BROWSER_API_URL}${result.debug_url}`}
                         alt="Debug preview"
                         className="mt-2 w-full rounded border"
                         onError={(e) => {
@@ -595,7 +595,7 @@ export default function ScanPage() {
                         }}
                       />
                       <div className="mt-2 p-2 bg-gray-100 text-gray-600 text-sm rounded border" style={{display: 'none'}}>
-                        Debug image failed to load. URL: {`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${result.debug_url}`}
+                        Debug image failed to load. URL: {`${process.env.NEXT_PUBLIC_BROWSER_API_URL}${result.debug_url}`}
                       </div>
                     </div>
                   )}
