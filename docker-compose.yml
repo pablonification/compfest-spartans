@@ -12,6 +12,10 @@ services:
     environment:
       - MONGODB_URL=mongodb://mongodb:27017/smartbin
       - ROBOTFLOW_API_KEY=${ROBOTFLOW_API_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
     depends_on:
       - mongodb
       - redis
