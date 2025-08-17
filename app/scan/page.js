@@ -174,6 +174,12 @@ export default function ScanPage() {
                   Leaderboard
                 </button>
                 <button
+                  onClick={() => router.push('/education')}
+                  className="text-sm text-indigo-600 hover:text-indigo-800"
+                >
+                  Education
+                </button>
+                <button
                   onClick={handleLogout}
                   className="text-sm text-gray-600 hover:text-gray-800"
                 >

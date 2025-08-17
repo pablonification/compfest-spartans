@@ -1,3 +1,11 @@
-from . import health, scan, ws, auth
+from . import health, scan, ws, auth, notification, statistics, educational
 
-__all__ = ["health", "scan", "ws", "auth"]
+__all__ = [
+    "health",
+    "scan",
+    "ws",
+    "auth",
+    "notification",
+    "statistics",
+    "educational",
+]
