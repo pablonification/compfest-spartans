@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell, X, Check, Trash2 } from 'lucide-react';
+import { FiBell, FiX, FiCheck, FiTrash2 } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function NotificationBell() {
@@ -164,7 +164,7 @@ export default function NotificationBell() {
         className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
         aria-label="Notifications"
       >
-        <Bell className="w-6 h-6" />
+                        <FiBell className="w-6 h-6" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -236,7 +236,7 @@ export default function NotificationBell() {
                           className="p-1 text-gray-400 hover:text-green-600 transition-colors"
                           title="Tandai sudah dibaca"
                         >
-                          <Check className="w-4 h-4" />
+                          <FiCheck className="w-4 h-4" />
                         </button>
                       )}
                       <button
@@ -244,7 +244,7 @@ export default function NotificationBell() {
                         className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                         title="Hapus notifikasi"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <FiTrash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

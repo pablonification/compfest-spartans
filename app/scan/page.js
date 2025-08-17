@@ -162,6 +162,18 @@ export default function ScanPage() {
                   History
                 </button>
                 <button
+                  onClick={() => router.push('/statistics')}
+                  className="text-sm text-green-600 hover:text-green-800"
+                >
+                  Statistics
+                </button>
+                <button
+                  onClick={() => router.push('/statistics#leaderboard')}
+                  className="text-sm text-purple-600 hover:text-purple-800"
+                >
+                  Leaderboard
+                </button>
+                <button
                   onClick={handleLogout}
                   className="text-sm text-gray-600 hover:text-gray-800"
                 >
