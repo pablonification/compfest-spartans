@@ -39,6 +39,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """
         super().__init__(app)
         self.exclude_paths = exclude_paths or [
+            "/",
             "/docs",
             "/redoc", 
             "/openapi.json",
