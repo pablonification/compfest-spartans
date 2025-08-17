@@ -31,7 +31,7 @@ BACKEND_SRC = PROJECT_ROOT / "backend" / "src"
 sys.path.insert(0, str(BACKEND_SRC))
 
 # Now regular imports will work
-from backend.services.opencv_service import BottleMeasurer, MeasurementError
+from src.backend.services.opencv_service import BottleMeasurer, MeasurementError
 
 SAMPLES: list[tuple[str, float]] = [
     ("testing/test2.1.jpg", 1500.0),

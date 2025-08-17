@@ -9,14 +9,14 @@ PROJECT_ROOT = CURRENT_FILE.parents[4]
 BACKEND_SRC = PROJECT_ROOT / "backend" / "src"
 sys.path.insert(0, str(BACKEND_SRC))
 
-from backend.services.validation_service import (
+from src.backend.services.validation_service import (
     validate_scan,
     PENALTY_POINTS,
     BASE_POINTS,
     CONFIDENCE_THRESHOLD,
 )
-from backend.services.opencv_service import MeasurementResult
-from backend.services.roboflow_service import Prediction
+from src.backend.services.opencv_service import MeasurementResult
+from src.backend.services.roboflow_service import Prediction
 
 
 def make_measurement(height: float) -> MeasurementResult:

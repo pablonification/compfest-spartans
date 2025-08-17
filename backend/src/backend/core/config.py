@@ -14,6 +14,16 @@ class Settings:
     # Format: <workspace>/<model_name>/<version>
     ROBOFLOW_MODEL_ID: str = os.getenv("ROBOFLOW_MODEL_ID", "klasifikasi-per-merk/3")
 
+    # Google OAuth2
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI")
+    
+    # JWT
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
 
 @lru_cache
 def get_settings() -> Settings:  # pragma: no cover

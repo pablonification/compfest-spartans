@@ -19,3 +19,10 @@ async def close_mongo_connection() -> None:
     global client
     if client is not None:
         client.close()
+
+
+def get_database() -> AsyncIOMotorDatabase:
+    """Get the MongoDB database instance."""
+    if mongo_db is None:
+        raise RuntimeError("MongoDB not initialized. Call connect_to_mongo() first.")
+    return mongo_db
