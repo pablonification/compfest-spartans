@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Ensure backend package importable when running as script
+CURRENT_FILE = Path(__file__).resolve()
+PROJECT_ROOT = CURRENT_FILE.parents[4]
+BACKEND_SRC = PROJECT_ROOT / "backend" / "src"
+sys.path.insert(0, str(BACKEND_SRC))
+
 from backend.services.validation_service import (
     validate_scan,
     PENALTY_POINTS,

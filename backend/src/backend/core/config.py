@@ -23,6 +23,11 @@ class Settings:
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
+    # Roboflow inference
+    ROBOFLOW_API_KEY: str = os.getenv("ROBOFLOW_API_KEY", "")
+    # Format: <workspace>/<model_name>/<version>
+    ROBOFLOW_MODEL_ID: str = os.getenv("ROBOFLOW_MODEL_ID", "klasifikasi-per-merk/3")
+
 
 @lru_cache
 def get_settings() -> Settings:  # pragma: no cover
