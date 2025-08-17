@@ -43,7 +43,7 @@ Sistem ini dirancang **tetap simple untuk user**, namun bisa diekspansi di masa 
 | Notifikasi sederhana (misal tong penuh) | User | Low |
 | Statistik personal (total botol, reward, impact sederhana) | User / Data | Low |
 | Edukasi singkat (tips/infografis) | Edukasi | Low |
-| Chatbot FAQ sederhana (rule-based) | Edukasi | Medium |
+| Chatbot RAG sederhana (rule-based) | Edukasi | Medium |
 
 ---
 

@@ -21,6 +21,42 @@ export default function ScanPage() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
+  // Ensure the video element gets the stream after render
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !cameraStream) return;
+
+    try {
+      // Some browsers need this set programmatically before play()
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = cameraStream;
+
+      const handleLoaded = () => {
+        setStatus('Camera ready');
+      };
+      video.onloadedmetadata = handleLoaded;
+
+      video.play().catch((err) => {
+        console.error('Video play error (effect):', err);
+        setStatus('Video play failed');
+      });
+    } catch (err) {
+      console.error('Failed to attach stream to video:', err);
+      setStatus('Video attach failed');
+    }
+
+    return () => {
+      if (video) {
+        video.onloadedmetadata = null;
+        // Detach stream on cleanup to avoid black frames on restart
+        try {
+          video.srcObject = null;
+        } catch {}
+      }
+    };
+  }, [cameraStream]);
+
   // Check camera permissions and available devices
   useEffect(() => {
     const checkCameraPermissions = async () => {
@@ -54,9 +90,21 @@ export default function ScanPage() {
     // Fix WebSocket URL to use localhost instead of container name
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-    const ws = new WebSocket(`${wsUrl}/ws/status`);
+    const fullWsUrl = `${wsUrl}/ws/status`;
     
-    console.log('Connecting to WebSocket:', wsUrl);
+    console.log('API URL:', apiUrl);
+    console.log('WebSocket URL:', wsUrl);
+    console.log('Full WebSocket URL:', fullWsUrl);
+    
+    let ws;
+    try {
+      ws = new WebSocket(fullWsUrl);
+      console.log('WebSocket object created:', ws);
+    } catch (error) {
+      console.error('Failed to create WebSocket:', error);
+      setStatus('WebSocket creation failed');
+      return;
+    }
     
     ws.onopen = () => {
       console.log('WebSocket connected successfully');
@@ -79,17 +127,21 @@ export default function ScanPage() {
     
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+      console.error('WebSocket readyState:', ws.readyState);
       setStatus('WebSocket error');
     };
     
     ws.onclose = (event) => {
       console.log('WebSocket disconnected:', event.code, event.reason);
+      console.log('WebSocket close event:', event);
       setStatus('WebSocket disconnected');
     };
     
     return () => {
-      console.log('Closing WebSocket connection');
-      ws.close();
+      console.log('Cleaning up WebSocket connection');
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, [token]);
 
@@ -495,13 +547,13 @@ export default function ScanPage() {
                       {result.brand || 'Unknown Brand'}
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      result.valid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      result.is_valid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                     }`}>
-                      {result.valid ? 'Valid' : 'Invalid'}
+                      {result.is_valid ? 'Valid' : 'Invalid'}
                     </span>
                   </div>
                   
-                  {result.valid && (
+                  {result.is_valid && (
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Points Awarded:</span>
@@ -533,10 +585,18 @@ export default function ScanPage() {
                     <div>
                       <span className="text-gray-500 text-sm">Debug Image:</span>
                       <img
-                        src={`http://${process.env.NEXT_PUBLIC_API_URL || 'localhost:8000'}${result.debug_url}`}
+                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${result.debug_url}`}
                         alt="Debug preview"
                         className="mt-2 w-full rounded border"
+                        onError={(e) => {
+                          console.error('Failed to load debug image:', e.target.src);
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
                       />
+                      <div className="mt-2 p-2 bg-gray-100 text-gray-600 text-sm rounded border" style={{display: 'none'}}>
+                        Debug image failed to load. URL: {`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${result.debug_url}`}
+                      </div>
                     </div>
                   )}
                 </div>

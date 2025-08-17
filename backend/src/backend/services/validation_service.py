@@ -51,27 +51,13 @@ def validate_scan(
     1. Check size constraints (height only for now; can extend to diameter).
     2. Determine top brand prediction.
     3. Decide points: full vs penalty.
-    4. If size invalid → reject.
+    4. If size invalid → reject but still show brand prediction.
     """
 
     # 1. Size validation
-    if not (MIN_HEIGHT_MM <= measurement.height_mm <= MAX_HEIGHT_MM):
-        logger.info(
-            "Bottle rejected due to height: %.2f mm (accepted %.0f–%.0f)",
-            measurement.height_mm,
-            MIN_HEIGHT_MM,
-            MAX_HEIGHT_MM,
-        )
-        return ValidationResult(
-            is_valid=False,
-            reason="SIZE_OUT_OF_RANGE",
-            brand=None,
-            confidence=None,
-            measurement=measurement,
-            points_awarded=0,
-        )
-
-    # 2. Pick highest confidence prediction
+    size_valid = MIN_HEIGHT_MM <= measurement.height_mm <= MAX_HEIGHT_MM
+    
+    # 2. Pick highest confidence prediction (always try to get brand info)
     top_pred: Optional[Prediction] = None
     if predictions:
         top_pred = max(predictions, key=lambda p: p.confidence)
@@ -84,7 +70,7 @@ def validate_scan(
     if top_pred:
         brand = top_pred.brand
         confidence = top_pred.confidence
-        if confidence >= CONFIDENCE_THRESHOLD:
+        if confidence >= CONFIDENCE_THRESHOLD and size_valid:
             points = BASE_POINTS
         else:
             points = PENALTY_POINTS
@@ -92,6 +78,23 @@ def validate_scan(
         brand = None
         confidence = None
         points = PENALTY_POINTS
+
+    # 3. Determine validity and reason
+    if not size_valid:
+        logger.info(
+            "Bottle rejected due to height: %.2f mm (accepted %.0f–%.0f)",
+            measurement.height_mm,
+            MIN_HEIGHT_MM,
+            MAX_HEIGHT_MM,
+        )
+        return ValidationResult(
+            is_valid=False,
+            reason="SIZE_OUT_OF_RANGE",
+            brand=brand,  # Still show the detected brand
+            confidence=confidence,  # Still show the confidence
+            measurement=measurement,
+            points_awarded=0,  # No points for invalid size
+        )
 
     return ValidationResult(
         is_valid=True,

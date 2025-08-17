@@ -213,7 +213,18 @@ class BottleMeasurer:
         logger.debug("Scale: %.4f mm/pixel", scale)
 
         # Define ROI above the reference object
-        roi = img[: y_ref, :]
+        # Ensure we have a valid ROI (at least some pixels above the reference)
+        if y_ref <= 0:
+            # If reference is at the top, use the entire image as ROI
+            roi = img
+            logger.warning("Reference at top of image, using entire image as ROI")
+        else:
+            roi = img[: y_ref, :]
+            logger.debug("ROI dimensions: %dx%d", roi.shape[1], roi.shape[0])
+
+        # Validate ROI is not empty
+        if roi.size == 0:
+            raise MeasurementError("ROI is empty - cannot detect bottle")
 
         # Dynamic min area threshold (~4 cm²) expressed in pixels
         pixel_per_cm = 10.0 / scale  # mm→px conversion (scale = mm/px)
