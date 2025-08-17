@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Protocol, Optional, List
 from bson import ObjectId
 
-from ...models.transaction import Transaction, TransactionCreate
+from ..models.transaction import Transaction, TransactionCreate
 
 
 class TransactionRepository(Protocol):

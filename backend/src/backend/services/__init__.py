@@ -1,8 +1,9 @@
 """Services package for SmartBin backend."""
 
-from .transaction_service import get_transaction_service, TransactionServiceImpl
+# Temporarily commented out to fix startup issues
+# from .transaction_service import get_transaction_service, TransactionServiceImpl
 
 __all__ = [
-    "get_transaction_service",
-    "TransactionServiceImpl",
+    # "get_transaction_service",
+    # "TransactionServiceImpl",
 ]
