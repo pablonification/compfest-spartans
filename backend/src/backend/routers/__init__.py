@@ -1,5 +1,5 @@
 """Routers package for SmartBin backend."""
 
-from . import health, scan, auth, ws
+from . import health, scan, ws
 
-__all__ = ["health", "scan", "auth", "ws"]
+__all__ = ["health", "scan", "ws"]
