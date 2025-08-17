@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
+import NotificationBell from '../components/NotificationBell';
 
 export default function ScanPage() {
   const { user, token, logout } = useAuth();
@@ -153,6 +154,7 @@ export default function ScanPage() {
                   <span className="font-medium">{user?.name || user?.email || 'User'}</span>
                   <span className="ml-2">• {user?.points || 0} points</span>
                 </div>
+                <NotificationBell />
                 <button
                   onClick={() => router.push('/history')}
                   className="text-sm text-blue-600 hover:text-blue-800"

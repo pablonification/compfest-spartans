@@ -125,10 +125,14 @@ async def google_callback(code: str):
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(payload: dict = Depends(verify_token)):
     """Get current authenticated user info"""
+    from bson import ObjectId
+    
     db = get_database()
     users_collection = db.users
     
-    user = await users_collection.find_one({"_id": payload["sub"]})
+    # Convert string ObjectId to ObjectId object
+    user_id = ObjectId(payload["sub"])
+    user = await users_collection.find_one({"_id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     

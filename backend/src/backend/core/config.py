@@ -5,7 +5,7 @@ from functools import lru_cache
 class Settings:
     """Application settings loaded from environment variables."""
 
-    MONGODB_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017/smartbin")
+    MONGODB_URI: str = os.getenv("MONGODB_URI", "")
     MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "smartbin")
     IOT_WS_URL: str = os.getenv("IOT_WS_URL", "ws://iot_simulator:8080")
 

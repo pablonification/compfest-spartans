@@ -22,28 +22,28 @@ Sistem ini dirancang **tetap simple untuk user**, namun bisa diekspansi di masa 
 ### **Fase 1 – Core System (MVP yang bisa dipakai user)**
 🎯 Tujuan: Sistem dasar berjalan → user bisa buang botol plastik, validasi otomatis, reward masuk.
 
-| Feature | Category | Complexity |
-|---------|-----------|------------|
-| Login & Register User | User | Low |
-| Scan botol plastik via kamera HP | User / AI | Medium |
-| Pengukuran ukuran botol (OpenCV) | AI | Medium |
-| Klasifikasi merek botol (YOLO) | AI | High |
-| Validasi sampah → IoT bin terbuka | IoT | Medium |
-| Sensor konfirmasi botol masuk | IoT | Medium |
-| Reward otomatis masuk ke akun user | Reward | Low |
-| Riwayat transaksi user (berapa botol, reward) | User | Low |
+| Feature | Category | Complexity | Status |
+|---------|-----------|------------|---------|
+| Login & Register User | User | Low | ⏳ **PENDING** |
+| Scan botol plastik via kamera HP | User / AI | Medium | ⏳ **PENDING** |
+| Pengukuran ukuran botol (OpenCV) | AI | Medium | ⏳ **PENDING** |
+| Klasifikasi merek botol (YOLO) | AI | High | ⏳ **PENDING** |
+| Validasi sampah → IoT bin terbuka | IoT | Medium | ⏳ **PENDING** |
+| Sensor konfirmasi botol masuk | IoT | Medium | ⏳ **PENDING** |
+| Reward otomatis masuk ke akun user | Reward | Low | ⏳ **PENDING** |
+| Riwayat transaksi user (berapa botol, reward) | User | Low | ⏳ **PENDING** |
 
 ---
 
 ### **Fase 2 – Value Added (Optional Features)**
 🎯 Tujuan: Menambah kenyamanan & engagement sederhana tanpa bikin sistem ribet.
 
-| Feature | Category | Complexity |
-|---------|-----------|------------|
-| Notifikasi sederhana (misal tong penuh) | User | Low |
-| Statistik personal (total botol, reward, impact sederhana) | User / Data | Low |
-| Edukasi singkat (tips/infografis) | Edukasi | Low |
-| Chatbot FAQ sederhana (rule-based) | Edukasi | Medium |
+| Feature | Category | Complexity | Status |
+|---------|-----------|------------|---------|
+| Notifikasi sederhana (misal tong penuh) | User | Low | ✅ **COMPLETED** |
+| Statistik personal (total botol, reward, impact sederhana) | User / Data | Low | 🔄 **IN PROGRESS** |
+| Edukasi singkat (tips/infografis) | Edukasi | Low | ⏳ **PENDING** |
+| Chatbot FAQ sederhana (rule-based) | Edukasi | Medium | ⏳ **PENDING** |
 
 ---
 

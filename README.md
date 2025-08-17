@@ -44,7 +44,7 @@ Service yang berjalan:
 
 ```
 ROBOFLOW_API_KEY=<your_key>
-MONGODB_URL=mongodb://mongodb:27017/smartbin
+MONGODB_URI=<Your MongoDB URI>
 IOT_WS_URL=ws://iot_simulator:8080
 ```
 

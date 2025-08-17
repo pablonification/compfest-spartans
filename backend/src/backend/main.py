@@ -1,12 +1,23 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 
-from .routers import health, scan, ws, auth
+from .routers import health, scan, ws, auth, notification
 from pathlib import Path
 from .db.mongo import connect_to_mongo, close_mongo_connection
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await connect_to_mongo()
+    yield
+    # Shutdown
+    await close_mongo_connection()
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Ensure debug image directory exists
 Path("debug_images").mkdir(exist_ok=True)
@@ -24,19 +35,10 @@ app.include_router(health.router)
 app.include_router(scan.router)
 app.include_router(ws.router)
 app.include_router(auth.router)
+app.include_router(notification.router)
 
 # Serve saved debug images under /debug
 app.mount("/debug", StaticFiles(directory="debug_images"), name="debug")
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    await connect_to_mongo()
-
-
-@app.on_event("shutdown")
-async def on_shutdown() -> None:
-    await close_mongo_connection()
 
 
 @app.get("/")
