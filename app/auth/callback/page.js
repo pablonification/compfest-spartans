@@ -26,7 +26,7 @@ function AuthCallbackContent() {
         }
 
         // Exchange code for token via backend
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/google/callback?code=${code}`, {
+        const response = await fetch(`/api/auth/google/callback?code=${code}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
