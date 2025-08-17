@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, status, Header
 
@@ -13,9 +14,8 @@ from ..schemas.scan import ScanResponse
 from ..services.iot_client import SmartBinClient
 from ..services.ws_manager import manager
 from ..services.reward_service import add_points
-import base64, binascii
-from pathlib import Path
-from uuid import uuid4
+from ..middleware.auth_middleware import get_current_user
+from ..models.user import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -44,16 +44,9 @@ async def scan_bottle(
     if not content:
         raise HTTPException(status_code=400, detail="Empty image upload")
 
-    # 2. OpenCV measurement (with debug preview)
+    # 2. OpenCV measurement
     try:
-        measurement, preview_bytes = bottle_measurer.measure(content, return_debug=True)
-        preview_b64: str | None = base64.b64encode(preview_bytes).decode()
-        # save preview image to disk
-        debug_dir = Path("debug_images")
-        debug_dir.mkdir(exist_ok=True)
-        filename = f"{uuid4().hex}.jpg"
-        (debug_dir / filename).write_bytes(preview_bytes)
-        debug_url = f"/debug/{filename}"
+        measurement = bottle_measurer.measure(content)
     except MeasurementError as exc:
         logger.warning("Measurement failed: %s", exc)
         raise HTTPException(status_code=422, detail="Unable to measure bottle") from exc
@@ -80,7 +73,7 @@ async def scan_bottle(
     # 6. Store to MongoDB (best-effort)
     try:
         if mongo_db:
-            await mongo_db["scans"].insert_one({
+            result = await mongo_db["scans"].insert_one({
                 "brand": validation_result.brand,
                 "confidence": validation_result.confidence,
                 "measurement": validation_result.measurement.__dict__,
@@ -94,23 +87,27 @@ async def scan_bottle(
         logger.error("Failed to save scan to DB: %s", exc)
 
     # 7. Broadcast to connected WS clients
-    await manager.broadcast({
-        "type": "scan_result",
-        "data": {
-            "brand": validation_result.brand,
-            "confidence": validation_result.confidence,
-            "diameter_mm": validation_result.measurement.diameter_mm,
-            "height_mm": validation_result.measurement.height_mm,
-            "volume_ml": validation_result.measurement.volume_ml,
-            "points": validation_result.points_awarded,
-            "total_points": user_total_points,
-            "valid": validation_result.is_valid,
-            "events": iot_events,
-            "email": x_user_email,
-            "debug_url": debug_url,
-            "debug_image": preview_b64,
-        }
-    })
+    try:
+        # Broadcast to all clients (general notification)
+        await manager.broadcast({
+            "type": "scan_result",
+            "data": {
+                "brand": validation_result.brand,
+                "confidence": validation_result.confidence,
+                "diameter_mm": validation_result.measurement.diameter_mm,
+                "height_mm": validation_result.measurement.height_mm,
+                "volume_ml": validation_result.measurement.volume_ml,
+                "points": validation_result.points_awarded,
+                "total_points": user_total_points,
+                "valid": validation_result.is_valid,
+                "events": iot_events,
+                "email": x_user_email,
+            }
+        })
+        
+    except Exception as e:
+        logger.error("Failed to broadcast scan result: %s", e)
+        # Continue with response even if WebSocket broadcast fails
 
     # 8. Return response
     return ScanResponse(
@@ -123,6 +120,4 @@ async def scan_bottle(
         volume_ml=validation_result.measurement.volume_ml,
         points_awarded=validation_result.points_awarded,
         total_points=user_total_points,
-        debug_image=preview_b64,
-        debug_url=debug_url,
     )

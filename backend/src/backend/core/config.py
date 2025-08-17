@@ -9,11 +9,6 @@ class Settings:
     MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "smartbin")
     IOT_WS_URL: str = os.getenv("IOT_WS_URL", "ws://iot_simulator:8080")
 
-    # Roboflow inference
-    ROBOFLOW_API_KEY: str = os.getenv("ROBOFLOW_API_KEY", "")
-    # Format: <workspace>/<model_name>/<version>
-    ROBOFLOW_MODEL_ID: str = os.getenv("ROBOFLOW_MODEL_ID", "klasifikasi-per-merk/3")
-
 
 @lru_cache
 def get_settings() -> Settings:  # pragma: no cover
