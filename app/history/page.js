@@ -32,13 +32,13 @@ export default function HistoryPage() {
       
       // Fetch transactions and summary in parallel
       const [transactionsResponse, summaryResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/transactions`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/scan/transactions`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/transactions/summary`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/scan/transactions/summary`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -145,8 +145,8 @@ export default function HistoryPage() {
         </div>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -155,14 +155,14 @@ export default function HistoryPage() {
                   </svg>
                 </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Scans</p>
-                <p className="text-2xl font-semibold text-gray-900">{summary.total_scans}</p>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500">Total Scans</p>
+                <p className="text-xl font-semibold text-gray-900">{summary.total_scans}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -171,16 +171,16 @@ export default function HistoryPage() {
                   </svg>
                 </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Valid Scans</p>
-                <p className="text-2xl font-semibold text-gray-900">
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500">Valid Scans</p>
+                <p className="text-xl font-semibold text-gray-900">
                   {summary.valid_scans}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -189,16 +189,16 @@ export default function HistoryPage() {
                   </svg>
                 </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Points</p>
-                <p className="text-2xl font-semibold text-gray-900">
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500">Total Points</p>
+                <p className="text-xl font-semibold text-gray-900">
                   {summary.total_points}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
@@ -207,12 +207,46 @@ export default function HistoryPage() {
                   </svg>
                 </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Success Rate</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {summary.total_scans > 0 
-                    ? Math.round((summary.valid_scans / summary.total_scans) * 100)
-                    : 0}%
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500">Success Rate</p>
+                <p className="text-xl font-semibold text-gray-900">
+                  {summary.success_rate?.toFixed(1) || 0}%
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500">Avg Confidence</p>
+                <p className="text-xl font-semibold text-gray-900">
+                  {(summary.average_confidence * 100)?.toFixed(1) || 0}%
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 bg-teal-100 rounded-full flex items-center justify-center">
+                  <svg className="h-5 w-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500">Total Volume</p>
+                <p className="text-xl font-semibold text-gray-900">
+                  {(summary.total_volume_ml / 1000)?.toFixed(1) || 0} L
                 </p>
               </div>
             </div>
@@ -278,6 +312,11 @@ export default function HistoryPage() {
                         {transaction.reason && (
                           <p className="text-xs text-gray-400 mt-1">
                             {transaction.reason}
+                          </p>
+                        )}
+                        {transaction.confidence && (
+                          <p className="text-xs text-gray-400">
+                            Confidence: {(transaction.confidence * 100).toFixed(1)}%
                           </p>
                         )}
                       </div>

@@ -2,28 +2,41 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 
 function AuthCallbackContent() {
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
+  const hasProcessed = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
+      // Prevent duplicate processing using ref
+      if (hasProcessed.current) {
+        return;
+      }
+
+      // If user is already authenticated, redirect immediately
+      if (user) {
+        router.push('/scan');
+        return;
+      }
+
+      // Get the authorization code from URL params
+      const code = searchParams.get('code');
+      
+      // If no code, don't process (might be initial render)
+      if (!code) {
+        return;
+      }
+
       try {
-        // Get the authorization code from URL params
-        const code = searchParams.get('code');
-        
-        if (!code) {
-          setError('No authorization code received');
-          setStatus('error');
-          return;
-        }
+        hasProcessed.current = true;
 
         // Exchange code for token via backend
         const response = await fetch(`/api/auth/google/callback?code=${code}`, {
@@ -57,7 +70,12 @@ function AuthCallbackContent() {
     };
 
     handleCallback();
-  }, [searchParams, router, login]);
+
+    // Cleanup function to handle component unmounting
+    return () => {
+      hasProcessed.current = false;
+    };
+  }, [searchParams, router, login, user]);
 
   if (status === 'loading') {
     return (
