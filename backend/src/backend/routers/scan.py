@@ -108,6 +108,24 @@ async def scan_bottle(
                     await user_service.add_scan_to_user(str(current_user.id), str(result.inserted_id))
                 except Exception as e:
                     logger.warning("Failed to add scan to user history: %s", e)
+                
+                # Create transaction record for the scan
+                try:
+                    from ..services.transaction_service import get_transaction_service
+                    transaction_service = get_transaction_service()
+                    transaction = await transaction_service.create_transaction_after_scan(
+                        str(current_user.id),
+                        str(result.inserted_id),
+                        validation_result.points_awarded
+                    )
+                    if transaction:
+                        logger.info("Created transaction %s for scan %s", 
+                                   str(transaction.id), str(result.inserted_id))
+                    else:
+                        logger.warning("Failed to create transaction for scan %s", str(result.inserted_id))
+                except Exception as e:
+                    logger.warning("Failed to create transaction record: %s", e)
+                    # Continue with scan even if transaction creation fails
                     
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to save scan to DB: %s", exc)

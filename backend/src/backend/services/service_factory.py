@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
 
-from ..domain.interfaces import UserRepository, AuthService, OAuthService
+from ..domain.interfaces import UserRepository, AuthService, OAuthService, TransactionService
 from ..repositories.user_repository import MongoDBUserRepository
 from .auth_service import JWTAuthService
 from .oauth_service import GoogleOAuthService
+from .transaction_service import get_transaction_service
 
 if TYPE_CHECKING:
     from .user_service import UserService
@@ -77,3 +78,8 @@ def get_oauth_service() -> OAuthService:
 def get_user_service() -> UserService:
     """Get the global user service instance."""
     return service_factory.create_user_service()
+
+
+def get_transaction_service() -> TransactionService:
+    """Get the global transaction service instance."""
+    return get_transaction_service()
