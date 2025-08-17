@@ -11,7 +11,7 @@ app.add_middleware(AuthMiddleware)
 
 app.include_router(health.router)
 app.include_router(scan.router)
-app.include_router(auth.router)
+app.include_router(auth.router, prefix="/auth")
 app.include_router(ws.router)
 
 
