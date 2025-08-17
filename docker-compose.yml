@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   backend:
     build:
@@ -9,7 +11,7 @@ services:
       - "8000:8000"
     environment:
       - MONGODB_URL=mongodb://mongodb:27017/smartbin
-      - ROBOFLOW_API_KEY=${ROBOFLOW_API_KEY}
+      - ROBOTFLOW_API_KEY=${ROBOTFLOW_API_KEY}
     depends_on:
       - mongodb
       - redis
@@ -18,8 +20,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-      args:
-        - NEXT_PUBLIC_API_URL=http://localhost:8000
     container_name: smartbin-frontend
     restart: unless-stopped
     ports:
