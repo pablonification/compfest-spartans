@@ -15,20 +15,27 @@ export async function GET(request) {
     // Proxy the request to the backend
     const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/google/callback?code=${code}`;
     
-    const response = await fetch(backendUrl, {
+    const backendResponse = await fetch(backendUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      return NextResponse.json(errorData, { status: response.status });
+    if (!backendResponse.ok) {
+      const errorData = await backendResponse.json();
+      return NextResponse.json(errorData, { status: backendResponse.status });
     }
 
-    const data = await response.json();
-    return NextResponse.json(data);
+    const data = await backendResponse.json();
+    
+    // Return response with cache control headers
+    const response = NextResponse.json(data);
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
     
   } catch (error) {
     console.error('Auth callback proxy error:', error);
