@@ -24,7 +24,7 @@ export default function ScanPage() {
   useEffect(() => {
     if (!token) return;
     
-    const ws = new WebSocket('ws://localhost:8000/ws/status');
+    const ws = new WebSocket(`ws://${process.env.NEXT_PUBLIC_API_URL?.replace('http://', '') || 'localhost:8000'}/ws/status`);
     
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -104,7 +104,7 @@ export default function ScanPage() {
       const formData = new FormData();
       formData.append('image', capturedImage, 'bottle.jpg');
       
-      const response = await fetch('http://localhost:8000/scan', {
+      const response = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL || 'localhost:8000'}/scan`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -306,7 +306,7 @@ export default function ScanPage() {
                     <div>
                       <span className="text-gray-500 text-sm">Debug Image:</span>
                       <img
-                        src={`http://localhost:8000${result.debug_url}`}
+                        src={`http://${process.env.NEXT_PUBLIC_API_URL || 'localhost:8000'}${result.debug_url}`}
                         alt="Debug preview"
                         className="mt-2 w-full rounded border"
                       />

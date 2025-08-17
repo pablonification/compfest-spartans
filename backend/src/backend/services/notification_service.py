@@ -13,9 +13,11 @@ class NotificationService:
     """Service for managing notifications."""
     
     def __init__(self):
-        self.db = get_database()
-        self.notifications_collection = self.db.notifications
-        self.settings_collection = self.db.notification_settings
+        pass
+    
+    def _get_collections(self):
+        db = get_database()
+        return db.notifications, db.notification_settings
     
     async def create_notification(
         self,
@@ -42,7 +44,8 @@ class NotificationService:
         notification = Notification(**notification_data)
         
         # Insert into database
-        result = await self.notifications_collection.insert_one(notification.model_dump(by_alias=True))
+        notifications_collection, _ = self._get_collections()
+        result = await notifications_collection.insert_one(notification.model_dump(by_alias=True))
         notification.id = result.inserted_id
         
         return notification
@@ -126,7 +129,8 @@ class NotificationService:
             filter_query["is_read"] = False
         
         # Execute query (supports both sync cursor and awaited cursor in tests)
-        result = self.notifications_collection.find(filter_query)
+        notifications_collection, _ = self._get_collections()
+        result = notifications_collection.find(filter_query)
         if asyncio.iscoroutine(result):
             result = await result
         cursor = result.sort("created_at", -1).limit(limit)
@@ -147,7 +151,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        result = await self.notifications_collection.update_one(
+        notifications_collection, _ = self._get_collections()
+        result = await notifications_collection.update_one(
             {"_id": notification_id, "user_id": user_id},
             {
                 "$set": {
@@ -167,7 +172,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        result = await self.notifications_collection.update_many(
+        notifications_collection, _ = self._get_collections()
+        result = await notifications_collection.update_many(
             {"user_id": user_id, "is_read": False},
             {
                 "$set": {
@@ -190,7 +196,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        result = await self.notifications_collection.delete_one({
+        notifications_collection, _ = self._get_collections()
+        result = await notifications_collection.delete_one({
             "_id": notification_id,
             "user_id": user_id
         })
@@ -202,7 +209,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        return await self.notifications_collection.count_documents({
+        notifications_collection, _ = self._get_collections()
+        return await notifications_collection.count_documents({
             "user_id": user_id,
             "is_read": False
         })
@@ -212,12 +220,13 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        settings = await self.settings_collection.find_one({"user_id": user_id})
+        _, settings_collection = self._get_collections()
+        settings = await settings_collection.find_one({"user_id": user_id})
         
         if not settings:
             # Create default settings
             default_settings = NotificationSettings(user_id=user_id)
-            result = await self.settings_collection.insert_one(
+            result = await settings_collection.insert_one(
                 default_settings.model_dump(by_alias=True)
             )
             default_settings.id = result.inserted_id
@@ -237,7 +246,8 @@ class NotificationService:
         # Remove None values
         update_data = {k: v for k, v in kwargs.items() if v is not None}
         
-        result = await self.settings_collection.update_one(
+        _, settings_collection = self._get_collections()
+        result = await settings_collection.update_one(
             {"user_id": user_id},
             {"$set": update_data}
         )

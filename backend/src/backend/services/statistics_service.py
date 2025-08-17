@@ -12,15 +12,18 @@ class StatisticsService:
     """Service for calculating and managing user statistics."""
     
     def __init__(self):
-        self.db = get_database()
-        self.scans_collection = self.db.scans
-        self.users_collection = self.db.users
-        self.statistics_collection = self.db.personal_statistics
+        pass
+    
+    def _get_collections(self):
+        db = get_database()
+        return db.scans, db.users, db.personal_statistics
     
     async def calculate_user_statistics(self, user_id: str | ObjectId) -> StatisticsSummary:
         """Calculate comprehensive statistics for a user."""
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
+        
+        scans_collection, _, _ = self._get_collections()
         
         # Get current month boundaries
         now = datetime.utcnow()
@@ -56,7 +59,7 @@ class StatisticsService:
             }}
         ]
         
-        result = list(self.scans_collection.aggregate(pipeline))
+        result = list(scans_collection.aggregate(pipeline))
         
         if not result:
             # No scans found, return default values
@@ -98,8 +101,10 @@ class StatisticsService:
     
     async def _calculate_streak(self, user_id: ObjectId) -> tuple[int, int]:
         """Calculate current and longest streak of consecutive days with scans."""
+        scans_collection, _, _ = self._get_collections()
+        
         # Get all scan dates for user
-        scan_dates = self.scans_collection.find(
+        scan_dates = scans_collection.find(
             {"user_id": user_id},
             {"created_at": 1}
         ).sort("created_at", -1)
@@ -161,6 +166,8 @@ class StatisticsService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
+        scans_collection, users_collection, statistics_collection = self._get_collections()
+        
         # Update or create statistics document
         update_data = {
             "$inc": {
@@ -183,7 +190,7 @@ class StatisticsService:
             update_data["$inc"]["bottles_this_month"] = bottle_count
             update_data["$inc"]["points_this_month"] = points_earned
         
-        await self.statistics_collection.update_one(
+        await statistics_collection.update_one(
             {"user_id": user_id},
             update_data,
             upsert=True
@@ -191,6 +198,8 @@ class StatisticsService:
     
     async def get_user_rankings(self, limit: int = 10) -> list[dict]:
         """Get top users by total bottles recycled."""
+        scans_collection, _, _ = self._get_collections()
+        
         pipeline = [
             {"$group": {
                 "_id": "$user_id",
@@ -215,7 +224,7 @@ class StatisticsService:
         ]
         
         rankings = []
-        async for rank in self.scans_collection.aggregate(pipeline):
+        async for rank in scans_collection.aggregate(pipeline):
             rankings.append(rank)
         
         return rankings

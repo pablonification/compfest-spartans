@@ -9,7 +9,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const backendUrl = `http://localhost:8000/notifications/${id}`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/notifications/${id}`;
     
     const response = await fetch(backendUrl, {
       method: 'DELETE',

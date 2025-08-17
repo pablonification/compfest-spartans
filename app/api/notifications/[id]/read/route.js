@@ -9,7 +9,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const backendUrl = `http://localhost:8000/notifications/${id}/read`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/notifications/${id}/read`;
     
     const response = await fetch(backendUrl, {
       method: 'PATCH',

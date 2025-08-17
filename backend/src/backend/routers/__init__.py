@@ -1,4 +1,4 @@
-from . import health, scan, ws, auth, notification, statistics, educational, transactions
+from . import health, scan, ws, auth, notification, statistics, educational
 
 __all__ = [
     "health",
@@ -8,5 +8,4 @@ __all__ = [
     "notification",
     "statistics",
     "educational",
-    "transactions",
 ]

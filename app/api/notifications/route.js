@@ -12,7 +12,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const backendUrl = `http://localhost:8000/notifications?limit=${limit}&unread_only=${unreadOnly}`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/notifications?limit=${limit}&unread_only=${unreadOnly}`;
     
     const response = await fetch(backendUrl, {
       headers: {

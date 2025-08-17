@@ -11,7 +11,7 @@ export async function GET(request) {
       );
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/statistics/personal`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/statistics/personal`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
