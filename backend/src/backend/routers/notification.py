@@ -15,10 +15,28 @@ from ..schemas.notification import (
     AchievementNotification
 )
 from ..services.notification_service import get_notification_service
-from ..routers.auth import get_current_user
+from ..routers.auth import verify_token
 from ..models.user import User
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+async def get_current_user(payload: dict = Depends(verify_token)) -> User:
+    """Get current authenticated user from token payload"""
+    from bson import ObjectId
+    
+    from ..db.mongo import get_database
+    
+    db = get_database()
+    users_collection = db.users
+    
+    # Convert string ObjectId to ObjectId object
+    user_id = ObjectId(payload["sub"])
+    user = await users_collection.find_one({"_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return User(**user)
 
 
 @router.get("/", response_model=NotificationListResponse)

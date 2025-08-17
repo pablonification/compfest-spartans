@@ -14,19 +14,27 @@ export function AuthProvider({ children }) {
     const storedToken = localStorage.getItem('smartbin_token');
     const storedUser = localStorage.getItem('smartbin_user');
     
-    if (storedToken && storedUser) {
+    if (storedToken && storedUser && storedToken !== 'null') {
       try {
         // Validate token by checking if it's expired
-        const tokenData = JSON.parse(atob(storedToken.split('.')[1]));
-        const currentTime = Math.floor(Date.now() / 1000);
-        
-        if (tokenData.exp > currentTime) {
-          // Token is still valid
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+        const tokenParts = storedToken.split('.');
+        if (tokenParts.length === 3) {
+          const tokenData = JSON.parse(atob(tokenParts[1]));
+          const currentTime = Math.floor(Date.now() / 1000);
+          
+          if (tokenData.exp > currentTime) {
+            // Token is still valid
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+            console.log('Token loaded successfully, expires:', new Date(tokenData.exp * 1000));
+          } else {
+            // Token expired, remove from storage
+            console.log('Token expired, removing from storage');
+            localStorage.removeItem('smartbin_token');
+            localStorage.removeItem('smartbin_user');
+          }
         } else {
-          // Token expired, remove from storage
-          console.log('Token expired, removing from storage');
+          console.log('Invalid token format, removing from storage');
           localStorage.removeItem('smartbin_token');
           localStorage.removeItem('smartbin_user');
         }
@@ -41,6 +49,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (userData, userToken) => {
+    if (!userToken || userToken === 'null') {
+      console.error('Invalid token provided to login');
+      return;
+    }
+    
+    console.log('Logging in user:', userData.email);
     setUser(userData);
     setToken(userToken);
     localStorage.setItem('smartbin_token', userToken);
@@ -48,6 +62,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    console.log('Logging out user');
     setUser(null);
     setToken(null);
     localStorage.removeItem('smartbin_token');
@@ -60,16 +75,26 @@ export function AuthProvider({ children }) {
   };
 
   const isAuthenticated = () => {
-    return !!token && !!user;
+    return !!token && !!user && token !== 'null';
   };
 
   const getAuthHeaders = () => {
+    if (!token || token === 'null') {
+      console.warn('Attempting to get auth headers with null token');
+      return {};
+    }
     return {
       'Authorization': `Bearer ${token}`,
     };
   };
 
   const getJsonHeaders = () => {
+    if (!token || token === 'null') {
+      console.warn('Attempting to get JSON headers with null token');
+      return {
+        'Content-Type': 'application/json',
+      };
+    }
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',

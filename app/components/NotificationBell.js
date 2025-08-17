@@ -10,14 +10,14 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef(null);
-  const { user } = useAuth();
+  const { user, token, getAuthHeaders } = useAuth();
 
   useEffect(() => {
-    if (user) {
+    if (user && token) {
       fetchNotifications();
       fetchUnreadCount();
     }
-  }, [user]);
+  }, [user, token]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -31,11 +31,14 @@ export default function NotificationBell() {
   }, []);
 
   const fetchNotifications = async () => {
+    if (!token) {
+      console.warn('No token available for fetching notifications');
+      return;
+    }
+    
     try {
       const response = await fetch('/api/notifications', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeaders()
       });
       
       if (response.ok) {
@@ -48,11 +51,14 @@ export default function NotificationBell() {
   };
 
   const fetchUnreadCount = async () => {
+    if (!token) {
+      console.warn('No token available for fetching unread count');
+      return;
+    }
+    
     try {
       const response = await fetch('/api/notifications/unread-count', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeaders()
       });
       
       if (response.ok) {
@@ -65,12 +71,15 @@ export default function NotificationBell() {
   };
 
   const markAsRead = async (notificationId) => {
+    if (!token) {
+      console.warn('No token available for marking notification as read');
+      return;
+    }
+    
     try {
       const response = await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeaders()
       });
       
       if (response.ok) {
@@ -89,12 +98,15 @@ export default function NotificationBell() {
   };
 
   const deleteNotification = async (notificationId) => {
+    if (!token) {
+      console.warn('No token available for deleting notification');
+      return;
+    }
+    
     try {
       const response = await fetch(`/api/notifications/${notificationId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeaders()
       });
       
       if (response.ok) {
@@ -110,12 +122,15 @@ export default function NotificationBell() {
   };
 
   const markAllAsRead = async () => {
+    if (!token) {
+      console.warn('No token available for marking all notifications as read');
+      return;
+    }
+    
     try {
       const response = await fetch('/api/notifications/mark-all-read', {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeaders()
       });
       
       if (response.ok) {

@@ -4,11 +4,15 @@ export async function GET(request) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!token || token === 'null') {
+      return NextResponse.json({ error: 'Unauthorized - No valid token' }, { status: 401 });
     }
     
-    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/notifications/unread-count`;
+    // Use the correct backend URL from environment
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000'}/notifications/unread-count`;
+    
+    console.log('Calling backend URL:', backendUrl);
+    console.log('Token:', token ? `${token.substring(0, 10)}...` : 'null');
     
     const response = await fetch(backendUrl, {
       headers: {
@@ -18,7 +22,9 @@ export async function GET(request) {
     });
     
     if (!response.ok) {
-      throw new Error(`Backend responded with ${response.status}`);
+      const errorText = await response.text();
+      console.error(`Backend error ${response.status}:`, errorText);
+      throw new Error(`Backend responded with ${response.status}: ${errorText}`);
     }
     
     const data = await response.json();
@@ -27,7 +33,7 @@ export async function GET(request) {
   } catch (error) {
     console.error('Error fetching unread count:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch unread count' },
+      { error: 'Failed to fetch unread count', details: error.message },
       { status: 500 }
     );
   }

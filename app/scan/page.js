@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
 import NotificationBell from '../components/NotificationBell';
+import WebSocketTest from '../components/WebSocketTest';
 
 export default function ScanPage() {
   const { user, token, logout } = useAuth();
@@ -24,21 +25,46 @@ export default function ScanPage() {
   useEffect(() => {
     if (!token) return;
     
-    const ws = new WebSocket(`ws://${process.env.NEXT_PUBLIC_API_URL?.replace('http://', '') || 'localhost:8000'}/ws/status`);
+    // Fix WebSocket URL to use localhost instead of container name
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+    const ws = new WebSocket(`${wsUrl}/ws/status`);
+    
+    console.log('Connecting to WebSocket:', wsUrl);
+    
+    ws.onopen = () => {
+      console.log('WebSocket connected successfully');
+      setStatus('WebSocket connected');
+    };
     
     ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'scan_result') {
-        setResult(msg.data);
-        setStatus('Completed');
-        setIsScanning(false);
+      try {
+        const msg = JSON.parse(e.data);
+        console.log('WebSocket message received:', msg);
+        if (msg.type === 'scan_result') {
+          setResult(msg.data);
+          setStatus('Completed');
+          setIsScanning(false);
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
       }
     };
     
-    ws.onerror = () => setStatus('WebSocket error');
-    ws.onclose = () => setStatus('WebSocket disconnected');
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setStatus('WebSocket error');
+    };
     
-    return () => ws.close();
+    ws.onclose = (event) => {
+      console.log('WebSocket disconnected:', event.code, event.reason);
+      setStatus('WebSocket disconnected');
+    };
+    
+    return () => {
+      console.log('Closing WebSocket connection');
+      ws.close();
+    };
   }, [token]);
 
   const startCamera = async () => {
@@ -323,6 +349,11 @@ export default function ScanPage() {
           
           {/* Hidden canvas for image capture */}
           <canvas ref={canvasRef} className="hidden" />
+        </div>
+        
+        {/* WebSocket Test Component for Debugging */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <WebSocketTest />
         </div>
       </div>
     </ProtectedRoute>
