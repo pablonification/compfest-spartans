@@ -6,10 +6,10 @@ import logging
 from typing import Optional, List
 from datetime import datetime, timezone
 
-from ..domain.interfaces.transaction_service import TransactionService
-from ..domain.interfaces.transaction_repository import TransactionRepository
-from ..models.transaction import Transaction, TransactionCreate, TransactionResponse
-from ..repositories.transaction_repository import MongoDBTransactionRepository
+from src.backend.domain.interfaces.transaction_service import TransactionService
+from src.backend.domain.interfaces.transaction_repository import TransactionRepository
+from src.backend.models.transaction import Transaction, TransactionCreate, TransactionResponse
+from src.backend.repositories.transaction_repository import MongoDBTransactionRepository
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol, Optional, List
 
-from ..models.transaction import Transaction, TransactionCreate, TransactionResponse
+from src.backend.models.transaction import Transaction, TransactionCreate, TransactionResponse
 
 
 class TransactionService(Protocol):

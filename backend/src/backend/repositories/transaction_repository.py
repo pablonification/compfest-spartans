@@ -8,9 +8,9 @@ from bson import ObjectId
 
 from motor.motor_asyncio import AsyncIOMotorCollection
 
-from ..domain.interfaces.transaction_repository import TransactionRepository
-from ..models.transaction import Transaction, TransactionCreate
-from ..db.mongo import mongo_db
+from src.backend.domain.interfaces.transaction_repository import TransactionRepository
+from src.backend.models.transaction import Transaction, TransactionCreate
+from src.backend.db.mongo import mongo_db
 
 logger = logging.getLogger(__name__)
 

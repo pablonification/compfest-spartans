@@ -8,6 +8,12 @@ export default function HistoryPage() {
   const { user, token, logout, getAuthHeaders } = useAuth();
   const router = useRouter();
   const [transactions, setTransactions] = useState([]);
+  const [summary, setSummary] = useState({
+    total_scans: 0,
+    valid_scans: 0,
+    total_points: 0,
+    success_rate: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -17,24 +23,40 @@ export default function HistoryPage() {
       return;
     }
 
-    fetchTransactions();
+    fetchData();
   }, [token, router]);
 
-  const fetchTransactions = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/scan/transactions', {
-        headers: getAuthHeaders(),
-      });
+      
+      // Fetch transactions and summary in parallel
+      const [transactionsResponse, summaryResponse] = await Promise.all([
+        fetch('http://localhost:8000/scan/transactions', {
+          headers: getAuthHeaders(),
+        }),
+        fetch('http://localhost:8000/scan/transactions/summary', {
+          headers: getAuthHeaders(),
+        })
+      ]);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!transactionsResponse.ok) {
+        throw new Error(`HTTP error! status: ${transactionsResponse.status}`);
       }
 
-      const data = await response.json();
-      setTransactions(data);
+      if (!summaryResponse.ok) {
+        throw new Error(`HTTP error! status: ${summaryResponse.status}`);
+      }
+
+      const [transactionsData, summaryData] = await Promise.all([
+        transactionsResponse.json(),
+        summaryResponse.json()
+      ]);
+
+      setTransactions(transactionsData);
+      setSummary(summaryData);
     } catch (err) {
-      console.error('Failed to fetch transactions:', err);
+      console.error('Failed to fetch data:', err);
       setError('Failed to load transaction history');
     } finally {
       setLoading(false);
@@ -129,7 +151,7 @@ export default function HistoryPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Scans</p>
-                <p className="text-2xl font-semibold text-gray-900">{transactions.length}</p>
+                <p className="text-2xl font-semibold text-gray-900">{summary.total_scans}</p>
               </div>
             </div>
           </div>
@@ -146,7 +168,7 @@ export default function HistoryPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Valid Scans</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {transactions.filter(t => t.valid).length}
+                  {summary.valid_scans}
                 </p>
               </div>
             </div>
@@ -164,7 +186,7 @@ export default function HistoryPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Points</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {transactions.reduce((sum, t) => sum + (t.points || 0), 0)}
+                  {summary.total_points}
                 </p>
               </div>
             </div>
@@ -182,8 +204,8 @@ export default function HistoryPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Success Rate</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {transactions.length > 0 
-                    ? Math.round((transactions.filter(t => t.valid).length / transactions.length) * 100)
+                  {summary.total_scans > 0 
+                    ? Math.round((summary.valid_scans / summary.total_scans) * 100)
                     : 0}%
                 </p>
               </div>
@@ -206,7 +228,7 @@ export default function HistoryPage() {
             <div className="p-6 text-center">
               <p className="text-sm text-red-600">{error}</p>
               <button
-                onClick={fetchTransactions}
+                onClick={fetchData}
                 className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Retry
