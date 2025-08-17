@@ -4,46 +4,40 @@ import logging
 from typing import Any, Optional, List
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, status, Header, Depends
+from fastapi import APIRouter, File, UploadFile, HTTPException, status, Depends
 
 from ..services.opencv_service import BottleMeasurer, MeasurementError
 from ..services.roboflow_service import RoboflowClient
 from ..services.validation_service import validate_scan
 from ..services.transaction_service import get_transaction_service
-from ..db.mongo import mongo_db, get_database
+from ..db.mongo import mongo_db
 from ..schemas.scan import ScanResponse
 from ..services.iot_client import SmartBinClient
 from ..services.ws_manager import manager
 from ..services.reward_service import add_points
 from ..routers.auth import verify_token
-import base64, binascii
+import base64
 from pathlib import Path
 from uuid import uuid4
 
+# Create router with explicit prefix
 router = APIRouter(prefix="/scan", tags=["scan"])
 logger = logging.getLogger(__name__)
 
-bottle_measurer = BottleMeasurer()  # default settings; could be injected
+# Initialize services
+bottle_measurer = BottleMeasurer()
 roboflow_client = RoboflowClient()
 smartbin_client = SmartBinClient()
-transaction_service = get_transaction_service()  # Get transaction service instance
+transaction_service = get_transaction_service()
 
 
 @router.post("/", response_model=ScanResponse, status_code=status.HTTP_200_OK)
 async def scan_bottle(
     image: UploadFile = File(...),
     payload: dict = Depends(verify_token),
-) -> Any:  # noqa: WPS110
-    """Handle bottle scanning.
-
-    1. Read image bytes.
-    2. Run OpenCV measurement.
-    3. Call Roboflow for brand prediction.
-    4. Validate and compute reward.
-    5. Store result in MongoDB.
-    6. Return validation payload.
-    """
-
+) -> Any:
+    """Handle bottle scanning."""
+    
     content = await image.read()
     if not content:
         raise HTTPException(status_code=400, detail="Empty image upload")
@@ -53,40 +47,43 @@ async def scan_bottle(
     if not user_email:
         raise HTTPException(status_code=401, detail="Invalid user token")
 
-    # 2. OpenCV measurement (with debug preview)
+    # OpenCV measurement
     try:
         measurement, preview_bytes = bottle_measurer.measure(content, return_debug=True)
         preview_b64: str | None = base64.b64encode(preview_bytes).decode()
-        # save preview image to disk
+        
+        # Save debug image
         debug_dir = Path("debug_images")
         debug_dir.mkdir(exist_ok=True)
         filename = f"{uuid4().hex}.jpg"
         (debug_dir / filename).write_bytes(preview_bytes)
         debug_url = f"/debug/{filename}"
+        
     except MeasurementError as exc:
         logger.warning("Measurement failed: %s", exc)
         raise HTTPException(status_code=422, detail="Unable to measure bottle") from exc
 
-    # 3. Roboflow predictions
+    # Roboflow predictions
     try:
         predictions = await roboflow_client.predict(content)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.error("Roboflow error: %s", exc)
         raise HTTPException(status_code=502, detail="Error contacting AI service") from exc
 
-    # 4. Validation
+    # Validation
     validation_result = validate_scan(measurement, predictions)
 
-    # 5. Open bin via IoT if valid
+    # IoT bin control
     iot_events = []
     if validation_result.is_valid:
         iot_events = await smartbin_client.open_bin()
 
+    # Add points
     user_total_points: Optional[int] = None
     if validation_result.is_valid and user_email:
         user_total_points = await add_points(user_email, validation_result.points_awarded)
 
-    # 6. Store to MongoDB (best-effort)
+    # Store scan result
     scan_id = None
     try:
         if mongo_db:
@@ -103,18 +100,14 @@ async def scan_bottle(
             })
             scan_id = str(scan_result.inserted_id)
             logger.info("Scan saved successfully with ID: %s", scan_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.error("Failed to save scan to DB: %s", exc)
 
-    # 6.5. Create transaction record if scan was successful and valid
+    # Create transaction record
     transaction_id = None
     if scan_id and validation_result.is_valid and user_email and validation_result.points_awarded > 0:
         try:
-            # Get user ID from email (we'll need to implement this)
-            # For now, we'll use the email as user_id since that's what we have
-            user_id = user_email  # TODO: Get actual user ID from email
-            
-            # Create transaction record
+            user_id = user_email
             created_transaction = await transaction_service.create_transaction_after_scan(
                 user_id=user_id,
                 scan_id=scan_id,
@@ -130,9 +123,8 @@ async def scan_bottle(
                 
         except Exception as exc:
             logger.error("Failed to create transaction for scan %s: %s", scan_id, exc)
-            # Don't fail the scan if transaction creation fails
 
-    # 7. Broadcast to connected WS clients
+    # Broadcast to WebSocket clients
     await manager.broadcast({
         "type": "scan_result",
         "data": {
@@ -153,7 +145,7 @@ async def scan_bottle(
         }
     })
 
-    # 8. Return response
+    # Return response
     return ScanResponse(
         scan_id=scan_id,
         transaction_id=transaction_id,
@@ -179,7 +171,7 @@ async def get_user_transactions(payload: dict = Depends(verify_token)):
         if not user_email:
             raise HTTPException(status_code=401, detail="Invalid user token")
         
-        # For development/testing, return mock data
+        # Return mock data for development
         mock_transactions = [
             {
                 "id": "mock_1",
@@ -208,48 +200,6 @@ async def get_user_transactions(payload: dict = Depends(verify_token)):
                     "height_mm": 175.0
                 },
                 "reason": "Valid bottle scan"
-            },
-            {
-                "id": "mock_3",
-                "brand": "VIT",
-                "confidence": 0.78,
-                "valid": False,
-                "points": 0,
-                "timestamp": "2024-01-13T09:20:00Z",
-                "measurement": {
-                    "volume_ml": 0.0,
-                    "diameter_mm": 0.0,
-                    "height_mm": 0.0
-                },
-                "reason": "Invalid bottle type"
-            },
-            {
-                "id": "mock_4",
-                "brand": "Aqua",
-                "confidence": 0.96,
-                "valid": True,
-                "points": 10,
-                "timestamp": "2024-01-12T14:15:00Z",
-                "measurement": {
-                    "volume_ml": 600.0,
-                    "diameter_mm": 65.0,
-                    "height_mm": 180.0
-                },
-                "reason": "Valid bottle scan"
-            },
-            {
-                "id": "mock_5",
-                "brand": "Le Minerale",
-                "confidence": 0.89,
-                "valid": True,
-                "points": 8,
-                "timestamp": "2024-01-11T11:30:00Z",
-                "measurement": {
-                    "volume_ml": 500.0,
-                    "diameter_mm": 60.0,
-                    "height_mm": 175.0
-                },
-                "reason": "Valid bottle scan"
             }
         ]
         
@@ -268,14 +218,14 @@ async def get_user_transaction_summary(payload: dict = Depends(verify_token)):
         if not user_email:
             raise HTTPException(status_code=401, detail="Invalid user token")
         
-        # Mock summary data based on the mock transactions
+        # Mock summary data
         summary = {
-            "total_scans": 5,
-            "valid_scans": 4,
-            "total_points": 36,
-            "success_rate": 80.0,
-            "average_confidence": 0.90,
-            "total_volume_ml": 2200.0
+            "total_scans": 2,
+            "valid_scans": 2,
+            "total_points": 18,
+            "success_rate": 100.0,
+            "average_confidence": 0.935,
+            "total_volume_ml": 1100.0
         }
         
         return summary
@@ -283,3 +233,4 @@ async def get_user_transaction_summary(payload: dict = Depends(verify_token)):
     except Exception as exc:
         logger.error("Failed to fetch transaction summary: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to fetch transaction summary")
+

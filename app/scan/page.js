@@ -21,6 +21,32 @@ export default function ScanPage() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
+  // Check camera permissions and available devices
+  useEffect(() => {
+    const checkCameraPermissions = async () => {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const permission = await navigator.permissions.query({ name: 'camera' });
+          console.log('Camera permission state:', permission.state);
+          
+          if (permission.state === 'denied') {
+            setStatus('Camera permission denied - please allow in browser settings');
+          }
+        }
+        
+        // List available devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        console.log('Available video devices:', videoDevices.length);
+        
+      } catch (error) {
+        console.error('Error checking camera permissions:', error);
+      }
+    };
+    
+    checkCameraPermissions();
+  }, []);
+
   // WebSocket connection for real-time updates
   useEffect(() => {
     if (!token) return;
@@ -69,22 +95,91 @@ export default function ScanPage() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment', // Use back camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      });
+      setStatus('Starting camera...');
       
-      setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia not supported');
       }
-      setStatus('Camera ready');
+      
+      // Check camera permissions first
+      const permissions = await navigator.permissions.query({ name: 'camera' });
+      if (permissions.state === 'denied') {
+        throw new Error('Camera permission denied');
+      }
+      
+      // Try to get camera with better constraints
+      const constraints = {
+        video: {
+          facingMode: 'environment', // Use back camera on mobile
+          width: { ideal: 1280, min: 640, max: 1920 },
+          height: { ideal: 720, min: 480, max: 1080 },
+          aspectRatio: { ideal: 16/9 },
+          frameRate: { ideal: 30, min: 15 }
+        }
+      };
+      
+      console.log('Requesting camera with constraints:', constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      console.log('Camera stream obtained:', stream.getVideoTracks()[0]?.getSettings());
+      setCameraStream(stream);
+      
+      if (videoRef.current) {
+        const video = videoRef.current;
+        video.srcObject = stream;
+        
+        // Wait for video to be ready before setting status
+        video.onloadedmetadata = () => {
+          console.log('Video metadata loaded:', video.videoWidth, 'x', video.videoHeight);
+          setStatus('Camera ready');
+        };
+        
+        video.onerror = (error) => {
+          console.error('Video error:', error);
+          setStatus('Video error');
+        };
+        
+        video.oncanplay = () => {
+          console.log('Video can play');
+        };
+        
+        // Start playing the video
+        video.play().catch(error => {
+          console.error('Video play error:', error);
+          setStatus('Video play failed');
+        });
+      }
+      
     } catch (error) {
       console.error('Camera error:', error);
-      setStatus('Camera access denied');
+      
+      // Try fallback constraints
+      try {
+        console.log('Trying fallback camera constraints...');
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user' } // Try front camera
+        });
+        
+        setCameraStream(fallbackStream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = fallbackStream;
+          setStatus('Camera ready (fallback)');
+        }
+      } catch (fallbackError) {
+        console.error('Fallback camera failed:', fallbackError);
+        
+        // Provide specific error messages
+        if (fallbackError.name === 'NotAllowedError') {
+          setStatus('Camera access denied - please allow camera permissions');
+        } else if (fallbackError.name === 'NotFoundError') {
+          setStatus('No camera found on this device');
+        } else if (fallbackError.name === 'NotReadableError') {
+          setStatus('Camera is in use by another application');
+        } else {
+          setStatus(`Camera error: ${fallbackError.message}`);
+        }
+      }
     }
   };
 
@@ -104,20 +199,32 @@ export default function ScanPage() {
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
     
+    // Check if video is ready
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setStatus('Video not ready yet');
+      return;
+    }
+    
     // Set canvas dimensions to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
-    // Draw video frame to canvas
-    context.drawImage(video, 0, 0);
+    // Clear canvas first
+    context.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Convert to blob
+    // Draw video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert to blob with better quality
     canvas.toBlob((blob) => {
       if (blob) {
         setCapturedImage(blob);
         setStatus('Image captured');
+        console.log('Image captured:', blob.size, 'bytes');
+      } else {
+        setStatus('Failed to capture image');
       }
-    }, 'image/jpeg', 0.8);
+    }, 'image/jpeg', 0.9);
   };
 
   const handleScan = async () => {
@@ -151,6 +258,35 @@ export default function ScanPage() {
       setStatus('Scan failed');
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const testCamera = async () => {
+    try {
+      setStatus('Testing camera...');
+      
+      // List available devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      
+      console.log('Available video devices:', videoDevices);
+      
+      if (videoDevices.length === 0) {
+        setStatus('No video devices found');
+        return;
+      }
+      
+      // Try to get basic video stream
+      const testStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      console.log('Test stream obtained:', testStream.getVideoTracks()[0]?.getSettings());
+      
+      // Stop test stream
+      testStream.getTracks().forEach(track => track.stop());
+      setStatus('Camera test successful');
+      
+    } catch (error) {
+      console.error('Camera test failed:', error);
+      setStatus(`Camera test failed: ${error.message}`);
     }
   };
 
@@ -224,24 +360,35 @@ export default function ScanPage() {
               <h2 className="text-lg font-medium text-gray-900">Scan Bottle</h2>
               
               {!cameraStream ? (
-                <button
-                  onClick={startCamera}
-                  className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
-                >
-                  <div className="text-center">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <p className="mt-2 text-sm text-gray-600">Click to start camera</p>
-                  </div>
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={startCamera}
+                    className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
+                  >
+                    <div className="text-center">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <p className="mt-2 text-sm text-gray-600">Click to start camera</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={testCamera}
+                    className="w-full py-2 px-4 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
+                  >
+                    Test Camera
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-4">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    className="w-full rounded-lg border border-gray-300"
+                    muted
+                    className="w-full rounded-lg border border-gray-300 bg-black"
+                    style={{ minHeight: '300px' }}
                   />
                   
                   <div className="flex space-x-3">
@@ -257,6 +404,43 @@ export default function ScanPage() {
                     >
                       Stop Camera
                     </button>
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => {
+                        stopCamera();
+                        setTimeout(startCamera, 500);
+                      }}
+                      className="flex-1 bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 transition-colors text-sm"
+                    >
+                      Restart Camera
+                    </button>
+                  </div>
+                  
+                  {/* Camera Status Indicator */}
+                  <div className="text-center text-sm text-gray-600">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className={`w-2 h-2 rounded-full ${cameraStream ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                      <span>{cameraStream ? 'Camera Active' : 'Camera Inactive'}</span>
+                    </div>
+                    {videoRef.current && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Resolution: {videoRef.current.videoWidth || 0} x {videoRef.current.videoHeight || 0}
+                      </div>
+                    )}
+                    {cameraStream && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        {(() => {
+                          const track = cameraStream.getVideoTracks()[0];
+                          if (track) {
+                            const settings = track.getSettings();
+                            return `FPS: ${settings.frameRate || 'N/A'}, Device: ${track.label || 'Unknown'}`;
+                          }
+                          return '';
+                        })()}
+                      </div>
+                    )}
                   </div>
                   
                   {capturedImage && (
@@ -281,6 +465,23 @@ export default function ScanPage() {
               <div className="text-sm text-gray-600">
                 Status: <span className="font-medium">{status}</span>
               </div>
+              
+              {/* Debug Info */}
+              <details className="mt-2 text-xs text-gray-500">
+                <summary className="cursor-pointer hover:text-gray-700">Debug Info</summary>
+                <div className="mt-2 space-y-1">
+                  <div>Camera Stream: {cameraStream ? 'Active' : 'None'}</div>
+                  <div>Video Element: {videoRef.current ? 'Ready' : 'Not Ready'}</div>
+                  {videoRef.current && (
+                    <>
+                      <div>Video Width: {videoRef.current.videoWidth || 'Not Set'}</div>
+                      <div>Video Height: {videoRef.current.videoHeight || 'Not Set'}</div>
+                      <div>Video Ready State: {videoRef.current.readyState || 'Unknown'}</div>
+                    </>
+                  )}
+                  <div>Captured Image: {capturedImage ? `${capturedImage.size} bytes` : 'None'}</div>
+                </div>
+              </details>
             </div>
 
             {/* Results Section */}

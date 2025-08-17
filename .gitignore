@@ -43,6 +43,6 @@ next-env.d.ts
 #backend
 # Backend
 backend/.venv
-backend/__pycache__/
-backend/*.pyc
-backend/.pytest_cache/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/

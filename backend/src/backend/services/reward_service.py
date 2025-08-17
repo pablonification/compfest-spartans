@@ -25,7 +25,7 @@ async def add_points(email: str, points: int, bottle_count: int = 1) -> int:
     if result is None:
         result = await collection.find_one({"email": email})
     
-            # Create reward notification
+    # Create reward notification
         try:
             user_id = result.get("_id")
             if user_id:
