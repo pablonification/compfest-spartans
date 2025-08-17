@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, status, Header
+from fastapi import APIRouter, File, UploadFile, HTTPException, status, Request, Depends
 
 from ..services.opencv_service import BottleMeasurer, MeasurementError
 from ..services.roboflow_service import RoboflowClient
@@ -13,6 +14,8 @@ from ..schemas.scan import ScanResponse
 from ..services.iot_client import SmartBinClient
 from ..services.ws_manager import manager
 from ..services.reward_service import add_points
+from ..middleware.auth_middleware import get_current_user
+from ..models.user import User
 import base64, binascii
 from pathlib import Path
 from uuid import uuid4
@@ -27,10 +30,13 @@ smartbin_client = SmartBinClient()
 
 @router.post("/scan", response_model=ScanResponse, status_code=status.HTTP_200_OK)
 async def scan_bottle(
+    request: Request,
     image: UploadFile = File(...),
-    x_user_email: Optional[str] = Header(None, alias="X-User-Email"),
+    current_user: User = Depends(get_current_user)
 ) -> Any:  # noqa: WPS110
     """Handle bottle scanning.
+
+    Requires authentication. User context is injected by auth middleware.
 
     1. Read image bytes.
     2. Run OpenCV measurement.
@@ -73,14 +79,24 @@ async def scan_bottle(
     if validation_result.is_valid:
         iot_events = await smartbin_client.open_bin()
 
+    # Add points to authenticated user if scan is valid
     user_total_points: Optional[int] = None
-    if validation_result.is_valid and x_user_email:
-        user_total_points = await add_points(x_user_email, validation_result.points_awarded)
+    if validation_result.is_valid:
+        try:
+            user_total_points = await add_points(current_user, validation_result.points_awarded)
+            logger.info("Added %d points to user %s. New total: %d", 
+                       validation_result.points_awarded, current_user.email, user_total_points)
+        except Exception as e:
+            logger.error("Failed to add points for user %s: %s", current_user.email, e)
+            # Continue with scan even if points addition fails
+            user_total_points = current_user.points
 
-    # 6. Store to MongoDB (best-effort)
+    # 6. Store to MongoDB with user information
     try:
         if mongo_db:
-            await mongo_db["scans"].insert_one({
+            scan_document = {
+                "user_id": current_user.id,
+                "user_email": current_user.email,
                 "brand": validation_result.brand,
                 "confidence": validation_result.confidence,
                 "measurement": validation_result.measurement.__dict__,
@@ -88,29 +104,65 @@ async def scan_bottle(
                 "valid": validation_result.is_valid,
                 "reason": validation_result.reason,
                 "iot_events": iot_events,
-                "user_email": x_user_email,
-            })
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc)
+            }
+            
+            result = await mongo_db["scans"].insert_one(scan_document)
+            
+            # Add scan ID to user's scan history
+            if result.inserted_id:
+                try:
+                    from ..services.service_factory import get_user_service
+                    user_service = get_user_service()
+                    await user_service.add_scan_to_user(str(current_user.id), str(result.inserted_id))
+                except Exception as e:
+                    logger.warning("Failed to add scan to user history: %s", e)
+                    
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to save scan to DB: %s", exc)
 
     # 7. Broadcast to connected WS clients
-    await manager.broadcast({
-        "type": "scan_result",
-        "data": {
-            "brand": validation_result.brand,
-            "confidence": validation_result.confidence,
-            "diameter_mm": validation_result.measurement.diameter_mm,
-            "height_mm": validation_result.measurement.height_mm,
-            "volume_ml": validation_result.measurement.volume_ml,
-            "points": validation_result.points_awarded,
-            "total_points": user_total_points,
-            "valid": validation_result.is_valid,
-            "events": iot_events,
-            "email": x_user_email,
-            "debug_url": debug_url,
-            "debug_image": preview_b64,
-        }
-    })
+    try:
+        # Broadcast to all clients (general notification)
+        await manager.broadcast({
+            "type": "scan_result",
+            "data": {
+                "user_id": str(current_user.id),
+                "user_email": current_user.email,
+                "brand": validation_result.brand,
+                "confidence": validation_result.confidence,
+                "diameter_mm": validation_result.measurement.diameter_mm,
+                "height_mm": validation_result.measurement.height_mm,
+                "volume_ml": validation_result.measurement.volume_ml,
+                "points": validation_result.points_awarded,
+                "total_points": user_total_points,
+                "valid": validation_result.is_valid,
+                "events": iot_events,
+                "scan_id": str(result.inserted_id) if 'result' in locals() and result.inserted_id else None,
+                "debug_url": debug_url,
+                "debug_image": preview_b64,
+            }
+        })
+        
+        # Send user-specific notification if user is connected
+        if manager.is_user_connected(str(current_user.id)):
+            await manager.broadcast_to_user(str(current_user.id), {
+                "type": "personal_scan_result",
+                "data": {
+                    "scan_id": str(result.inserted_id) if 'result' in locals() and result.inserted_id else None,
+                    "brand": validation_result.brand,
+                    "confidence": validation_result.confidence,
+                    "points_awarded": validation_result.points_awarded,
+                    "total_points": user_total_points,
+                    "valid": validation_result.is_valid,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            })
+            
+    except Exception as e:
+        logger.error("Failed to broadcast scan result: %s", e)
+        # Continue with response even if WebSocket broadcast fails
 
     # 8. Return response
     return ScanResponse(

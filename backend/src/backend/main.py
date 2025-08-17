@@ -2,9 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .routers import health, scan, ws
+from .routers import health, scan, auth, ws
 from pathlib import Path
 from .db.mongo import connect_to_mongo, close_mongo_connection
+from .middleware.auth_middleware import AuthMiddleware
 
 app = FastAPI()
 
@@ -12,6 +13,7 @@ app = FastAPI()
 Path("debug_images").mkdir(exist_ok=True)
 
 # Add CORS middleware
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, restrict this to your frontend domain
@@ -22,6 +24,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(scan.router)
+app.include_router(auth.router)
 app.include_router(ws.router)
 
 # Serve saved debug images under /debug
