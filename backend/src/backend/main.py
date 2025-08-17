@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
-from .routers import health, scan, ws, auth, notification, statistics, educational
+from .routers import health, scan, ws, auth, notification, statistics, educational, transactions
 from pathlib import Path
 from .db.mongo import connect_to_mongo, close_mongo_connection
 
@@ -32,12 +32,13 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
-app.include_router(scan.router)
+app.include_router(scan.router, prefix="/scan")
 app.include_router(ws.router)
 app.include_router(auth.router)
 app.include_router(notification.router)
 app.include_router(statistics.router)
 app.include_router(educational.router)
+app.include_router(transactions.router, prefix="/api/v1")
 
 # Serve saved debug images under /debug
 app.mount("/debug", StaticFiles(directory="debug_images"), name="debug")

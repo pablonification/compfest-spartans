@@ -5,6 +5,8 @@ from typing import Optional
 
 
 class ScanResponse(BaseModel):
+    scan_id: Optional[str] = None
+    transaction_id: Optional[str] = None
     is_valid: bool
     reason: Optional[str] = None
     brand: Optional[str] = None
@@ -16,5 +18,5 @@ class ScanResponse(BaseModel):
 
     points_awarded: int
     total_points: Optional[int] = None
-    debug_image: str | None = None  # base64 JPEG with reference/bottle bboxes
+    debug_image: str | None = None  # base64 JPEG with reference/bboxes
     debug_url: str | None = None
