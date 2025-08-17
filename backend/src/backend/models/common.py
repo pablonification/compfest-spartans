@@ -31,7 +31,7 @@ PyObjectId = Annotated[
 class MongoBaseModel(BaseModel):
     """Base model that serializes ObjectId to str for JSON."""
 
-    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    id: PyObjectId = Field(default_factory=ObjectId)
     
     model_config = ConfigDict(
         populate_by_name=True,

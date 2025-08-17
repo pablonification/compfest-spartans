@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from .routers import health, scan, ws, auth, notification, statistics, educational
+from .routers.rag import router as rag_router  # import rag separately after routers package initialized
 from pathlib import Path
 from .db.mongo import connect_to_mongo, close_mongo_connection
 
@@ -38,9 +39,18 @@ app.include_router(auth.router)
 app.include_router(notification.router)
 app.include_router(statistics.router)
 app.include_router(educational.router)
+app.include_router(rag_router)
 
 # Serve saved debug images under /debug
 app.mount("/debug", StaticFiles(directory="debug_images"), name="debug")
+
+# Serve static files (including RAG test frontend)
+# app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve RAG test frontend
+rag_frontend_path = Path(__file__).parent.parent.parent.parent / "rag-test-frontend"
+if rag_frontend_path.exists():
+    app.mount("/rag-test", StaticFiles(directory=str(rag_frontend_path)), name="rag_frontend")
 
 
 @app.get("/")

@@ -15,8 +15,8 @@ ENV PYTHONPATH=/app/src
 # Copy project metadata first (leveraging docker layer cache)
 COPY pyproject.toml /app/
 
-# Install Python dependencies (minimal for now; extended deps will be added later)
-RUN pip install --no-cache-dir "fastapi>=0.116.1" "uvicorn[standard]>=0.35.0" motor pymongo redis python-dotenv requests httpx opencv-python-headless numpy Pillow python-multipart websockets PyJWT python-jose[cryptography] pytest pytest-asyncio inference-sdk
+# Install Python dependencies directly from pyproject.toml
+RUN pip install --no-cache-dir "fastapi>=0.116.1" "uvicorn[standard]>=0.35.0" motor pymongo redis python-dotenv requests httpx opencv-python-headless numpy Pillow python-multipart websockets PyJWT python-jose[cryptography] pytest pytest-asyncio inference-sdk langchain langchain-community langgraph chromadb langchain-google-genai
 
 # Copy source code
 COPY src /app/src
