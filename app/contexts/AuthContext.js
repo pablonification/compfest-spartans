@@ -74,13 +74,10 @@ export function AuthProvider({ children }) {
     localStorage.setItem('smartbin_user', JSON.stringify(userData));
   };
 
-  const isAuthenticated = () => {
-    return !!token && !!user && token !== 'null';
-  };
-
   const getAuthHeaders = () => {
     if (!token || token === 'null') {
       console.warn('Attempting to get auth headers with null token');
+      console.warn('Current auth state:', { user: !!user, token: !!token, tokenValue: token });
       return {};
     }
     return {
@@ -91,6 +88,7 @@ export function AuthProvider({ children }) {
   const getJsonHeaders = () => {
     if (!token || token === 'null') {
       console.warn('Attempting to get JSON headers with null token');
+      console.warn('Current auth state:', { user: !!user, token: !!token, tokenValue: token });
       return {
         'Content-Type': 'application/json',
       };
@@ -99,6 +97,45 @@ export function AuthProvider({ children }) {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     };
+  };
+
+  // Enhanced token validation
+  const validateToken = () => {
+    if (!token || token === 'null') {
+      return false;
+    }
+    
+    try {
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        console.warn('Invalid token format');
+        return false;
+      }
+      
+      const tokenData = JSON.parse(atob(tokenParts[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      if (tokenData.exp <= currentTime) {
+        console.warn('Token expired');
+        logout();
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Token validation error:', error);
+      logout();
+      return false;
+    }
+  };
+
+  // Enhanced authentication check
+  const isAuthenticated = () => {
+    const isValid = validateToken();
+    if (!isValid) {
+      console.warn('Authentication check failed:', { user: !!user, token: !!token, tokenValid: isValid });
+    }
+    return isValid && !!user;
   };
 
   const value = {

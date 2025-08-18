@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { makeAuthenticatedRequest } from '../utils/auth';
 
 export default function Leaderboard() {
-  const { user } = useAuth();
+  const auth = useAuth();
   const [rankings, setRankings] = useState([]);
   const [userRank, setUserRank] = useState(null);
   const [totalParticipants, setTotalParticipants] = useState(0);
@@ -12,33 +13,34 @@ export default function Leaderboard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (user) {
+    if (auth.user && auth.token) {
       fetchLeaderboard();
     }
-  }, [user]);
+  }, [auth.user, auth.token]);
 
   const fetchLeaderboard = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/statistics/leaderboard', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch leaderboard');
-      }
-
-      const data = await response.json();
+    const data = await makeAuthenticatedRequest(
+      '/api/statistics/leaderboard',
+      {},
+      auth,
+      setError,
+      setLoading
+    );
+    
+    if (data) {
       setRankings(data.rankings || []);
       setUserRank(data.user_rank);
-      setTotalParticipants(data.total_participants);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      setTotalParticipants(data.total_participants || 0);
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    fetchLeaderboard();
+  };
+
+  const handleLogout = () => {
+    auth.logout();
   };
 
   if (loading) {
@@ -52,13 +54,31 @@ export default function Leaderboard() {
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-        <p className="text-red-600">Error: {error}</p>
-        <button 
-          onClick={fetchLeaderboard}
-          className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Retry
-        </button>
+        <div className="flex items-center justify-center mb-2">
+          <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <p className="text-red-600 font-medium">Error: {error}</p>
+        </div>
+        <div className="space-x-2">
+          <button 
+            onClick={handleRetry}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+          <button 
+            onClick={handleLogout}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+          >
+            Logout & Re-login
+          </button>
+        </div>
+        {error.includes('500') && (
+          <p className="text-sm text-red-500 mt-2">
+            Server error detected. Please try again later or contact support.
+          </p>
+        )}
       </div>
     );
   }
