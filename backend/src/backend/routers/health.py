@@ -33,7 +33,7 @@ def websocket_health_check():
 
 
 @router.get("/health/detailed")
-def detailed_health_check():
+async def detailed_health_check():
     """Comprehensive health check including all services"""
     try:
         from ..services.ws_manager import manager
@@ -47,12 +47,11 @@ def detailed_health_check():
         except Exception as e:
             ws_status = f"unhealthy: {str(e)}"
         
-        # Check database connection (synchronous check)
+        # Check database connection (async check using ensure_connection)
         db_status = "healthy"
         try:
-            from ..db.mongo import get_database
-            db = get_database()
-            # Note: This is a synchronous check, async operations would need different handling
+            db = await ensure_connection()
+            await db.command('ping')
         except Exception as e:
             db_status = f"unhealthy: {str(e)}"
         

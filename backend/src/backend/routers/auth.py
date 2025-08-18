@@ -1,21 +1,22 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import RedirectResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from __future__ import annotations
+
 import httpx
-import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import jwt
 
 from ..core.config import get_settings
 from ..models.user import User
-from ..db.mongo import get_database
+from ..db.mongo import ensure_connection
 from ..schemas.auth import GoogleAuthResponse, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
 
 settings = get_settings()
-
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Create JWT access token"""
@@ -81,8 +82,8 @@ async def google_callback(code: str):
             user_response.raise_for_status()
             user_info = user_response.json()
         
-        # Get database connection
-        db = get_database()
+        # Get database connection using ensure_connection
+        db = await ensure_connection()
         users_collection = db.users
         
         # Check if user exists, create if not
@@ -127,7 +128,7 @@ async def get_current_user(payload: dict = Depends(verify_token)):
     """Get current authenticated user info"""
     from bson import ObjectId
     
-    db = get_database()
+    db = await ensure_connection()
     users_collection = db.users
     
     # Convert string ObjectId to ObjectId object

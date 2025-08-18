@@ -25,9 +25,9 @@ async def get_current_user(payload: dict = Depends(verify_token)) -> User:
     """Get current authenticated user from token payload"""
     from bson import ObjectId
     
-    from ..db.mongo import get_database
+    from ..db.mongo import ensure_connection
     
-    db = get_database()
+    db = await ensure_connection()
     users_collection = db.users
     
     # Convert string ObjectId to ObjectId object

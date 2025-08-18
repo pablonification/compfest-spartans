@@ -6,26 +6,11 @@ import asyncio
 from bson import ObjectId
 
 from ..models.notification import Notification, NotificationSettings
-from ..db.mongo import get_database
+from ..db.mongo import ensure_connection
 
 
 class NotificationService:
     """Service for managing notifications."""
-    
-    def __init__(self, db=None):
-        # Store DB at construction time so tests can patch get_database only during __init__
-        # and the service will continue using the injected mock afterwards.
-        self._db = db
-        if self._db is None:
-            try:
-                self._db = get_database()
-            except Exception:
-                # Defer database acquisition to call sites if not initialized yet
-                self._db = None
-    
-    def _get_collections(self):
-        db = self._db or get_database()
-        return db.notifications, db.notification_settings
     
     async def create_notification(
         self,
@@ -51,8 +36,9 @@ class NotificationService:
         
         notification = Notification(**notification_data)
         
-        # Insert into database
-        notifications_collection, _ = self._get_collections()
+        # Insert into database using ensure_connection
+        db = await ensure_connection()
+        notifications_collection = db.notifications
         result = await notifications_collection.insert_one(notification.model_dump(by_alias=True))
         notification.id = result.inserted_id
         
@@ -136,8 +122,9 @@ class NotificationService:
         if unread_only:
             filter_query["is_read"] = False
         
-        # Execute query (supports both sync cursor, awaited cursor, or list-like mocks)
-        notifications_collection, _ = self._get_collections()
+        # Execute query using ensure_connection
+        db = await ensure_connection()
+        notifications_collection = db.notifications
         result = notifications_collection.find(filter_query)
         if asyncio.iscoroutine(result):
             result = await result
@@ -180,7 +167,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        notifications_collection, _ = self._get_collections()
+        db = await ensure_connection()
+        notifications_collection = db.notifications
         result = await notifications_collection.update_one(
             {"_id": notification_id, "user_id": user_id},
             {
@@ -201,7 +189,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        notifications_collection, _ = self._get_collections()
+        db = await ensure_connection()
+        notifications_collection = db.notifications
         result = await notifications_collection.update_many(
             {"user_id": user_id, "is_read": False},
             {
@@ -235,7 +224,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        notifications_collection, _ = self._get_collections()
+        db = await ensure_connection()
+        notifications_collection = db.notifications
         result = await notifications_collection.delete_one({
             "_id": notification_id,
             "user_id": user_id
@@ -248,7 +238,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        notifications_collection, _ = self._get_collections()
+        db = await ensure_connection()
+        notifications_collection = db.notifications
         count = await notifications_collection.count_documents({
             "user_id": user_id,
             "is_read": False
@@ -266,7 +257,8 @@ class NotificationService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        _, settings_collection = self._get_collections()
+        db = await ensure_connection()
+        settings_collection = db.notification_settings
         settings = await settings_collection.find_one({"user_id": user_id})
         
         if not settings:
@@ -312,7 +304,8 @@ class NotificationService:
         # Remove None values
         update_data = {k: v for k, v in kwargs.items() if v is not None}
         
-        _, settings_collection = self._get_collections()
+        db = await ensure_connection()
+        settings_collection = db.notification_settings
         result = await settings_collection.update_one(
             {"user_id": user_id},
             {"$set": update_data}
