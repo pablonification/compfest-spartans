@@ -24,6 +24,10 @@ class Settings:
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
+    # Admin and payouts
+    ADMIN_EMAILS: str = os.getenv("ADMIN_EMAILS", "")  # comma-separated
+    MIN_WITHDRAWAL_POINTS: int = int(os.getenv("MIN_WITHDRAWAL_POINTS", ""))
+
 
 @lru_cache
 def get_settings() -> Settings:  # pragma: no cover

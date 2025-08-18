@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from .routers import health, scan, ws, auth, notification, statistics, educational, transactions
+from .routers.payout import router as payout_router
 from .routers.rag import router as rag_router  # import rag separately after routers package initialized
 from pathlib import Path
 from .db.mongo import connect_to_mongo, close_mongo_connection
@@ -41,6 +42,7 @@ app.include_router(statistics.router)
 app.include_router(educational.router)
 app.include_router(transactions.router)
 app.include_router(rag_router)
+app.include_router(payout_router)
 
 # Serve saved debug images under /debug
 app.mount("/debug", StaticFiles(directory="debug_images"), name="debug")

@@ -14,6 +14,7 @@ export default function HistoryPage() {
     total_points: 0,
     success_rate: 0
   });
+  const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -30,8 +31,8 @@ export default function HistoryPage() {
     try {
       setLoading(true);
       
-      // Fetch transactions and summary in parallel
-      const [transactionsResponse, summaryResponse] = await Promise.all([
+      // Fetch transactions, summary and withdrawals in parallel
+      const [transactionsResponse, summaryResponse, withdrawalsResponse] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/scan/transactions`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -39,6 +40,12 @@ export default function HistoryPage() {
           },
         }),
         fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/scan/transactions/summary`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/payout/withdrawals`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -53,14 +60,19 @@ export default function HistoryPage() {
       if (!summaryResponse.ok) {
         throw new Error(`HTTP error! status: ${summaryResponse.status}`);
       }
+      if (!withdrawalsResponse.ok) {
+        throw new Error(`HTTP error! status: ${withdrawalsResponse.status}`);
+      }
 
-      const [transactionsData, summaryData] = await Promise.all([
+      const [transactionsData, summaryData, withdrawalsData] = await Promise.all([
         transactionsResponse.json(),
-        summaryResponse.json()
+        summaryResponse.json(),
+        withdrawalsResponse.json(),
       ]);
 
       setTransactions(transactionsData);
       setSummary(summaryData);
+      setWithdrawals(withdrawalsData || []);
       // Ensure user points stay in sync with backend summary
       if (summaryData && typeof summaryData.total_points === 'number') {
         if (user) {
@@ -106,43 +118,9 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="h-8 w-8 bg-green-600 rounded-full flex items-center justify-center">
-                <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-900">SmartBin</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">{user.name || user.email}</span>
-                <span className="ml-2">• {(typeof user.points === 'number' && user.points >= 0) ? user.points : 0} points</span>
-              </div>
-              <button
-                onClick={() => router.push('/scan')}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                Scan
-              </button>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-gray-600 hover:text-gray-800"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* User Info moved to Navbar */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900">Transaction History</h2>
           <p className="mt-2 text-gray-600">
@@ -345,6 +323,28 @@ export default function HistoryPage() {
                       )}
                     </div>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Withdrawals */}
+        <div className="bg-white rounded-lg border border-gray-200 mt-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Withdrawal History</h3>
+          </div>
+          {withdrawals.length === 0 ? (
+            <div className="p-6 text-center text-sm text-gray-600">No withdrawal requests</div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {withdrawals.map((w, idx) => (
+                <div key={idx} className="px-6 py-4 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">{w.amount_points} points</div>
+                    <div className="text-xs text-gray-500">{new Date(w.created_at).toLocaleString('id-ID')}</div>
+                  </div>
+                  <div className={`text-sm font-semibold ${w.status==='completed'?'text-green-600':w.status==='rejected'?'text-red-600':'text-yellow-600'}`}>{w.status}</div>
                 </div>
               ))}
             </div>

@@ -1,13 +1,19 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
+from ..db.mongo import ensure_connection
 
 router = APIRouter()
 
 
 @router.get("/health")
-def health_check():
-    """Basic health check endpoint"""
-    return {"status": "healthy"}
+async def health_check():
+    """Basic health check endpoint that pings MongoDB"""
+    try:
+        db = await ensure_connection()
+        await db.command('ping')
+        return {"status": "healthy"}
+    except Exception:
+        return {"status": "degraded"}
 
 
 @router.get("/health/websocket")

@@ -278,7 +278,9 @@ async def get_user_transaction_summary(payload: dict = Depends(verify_token)):
         if result:
             total_scans = result.get("total_scans", 0) or 0
             valid_scans = result.get("valid_scans", 0) or 0
-            total_points = result.get("total_points", 0) or 0
+            # Use authoritative points from users collection to reflect withdrawals
+            user_doc = await db["users"].find_one({"email": user_email})
+            total_points = (user_doc.get("points", 0) if user_doc else 0) or 0
             total_volume_ml = result.get("total_volume_ml", 0.0) or 0.0
             avg_confidence = result.get("avg_confidence", 0.0) or 0.0
             

@@ -20,6 +20,8 @@ services:
       - JWT_ALGORITHM=HS256
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10080
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
+      - MIN_WITHDRAWAL_POINTS=${MIN_WITHDRAWAL_POINTS}
     depends_on:
       - mongodb
       - redis

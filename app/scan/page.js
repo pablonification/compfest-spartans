@@ -609,9 +609,9 @@ export default function ScanPage() {
         </div>
         
         {/* WebSocket Test Component for Debugging */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <WebSocketTest />
-        </div>
+        </div> */}
       </div>
     </ProtectedRoute>
   );
