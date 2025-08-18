@@ -10,7 +10,7 @@ import NotificationBell from '../components/NotificationBell';
 import WebSocketTest from '../components/WebSocketTest';
 
 export default function ScanPage() {
-  const { user, token, logout } = useAuth();
+  const { user, token, logout, updateUser } = useAuth();
   const router = useRouter();
   const [status, setStatus] = useState('Ready');
   const [result, setResult] = useState(null);
@@ -20,6 +20,12 @@ export default function ScanPage() {
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+
+  // Debug user state changes
+  useEffect(() => {
+    console.log('User state changed:', user);
+    console.log('User points:', user?.points);
+  }, [user]);
 
   // Ensure the video element gets the stream after render
   useEffect(() => {
@@ -117,6 +123,28 @@ export default function ScanPage() {
         console.log('WebSocket message received:', msg);
         if (msg.type === 'scan_result') {
           setResult(msg.data);
+          // Update user points in context when scan result comes via WebSocket
+          console.log('WebSocket scan result:', msg.data);
+          console.log('Current user points:', user?.points);
+          console.log('Current user object:', user);
+          console.log('msg.data.total_points:', msg.data?.total_points);
+          console.log('msg.data.total_points type:', typeof msg.data?.total_points);
+          if (msg.data && user) {
+            const current = user?.points ?? 0;
+            const totalFromServer = typeof msg.data.total_points === 'number' ? msg.data.total_points : null;
+            const awarded = typeof msg.data.points === 'number' ? msg.data.points : (
+              typeof msg.data.points_awarded === 'number' ? msg.data.points_awarded : null
+            );
+            let candidate = current;
+            if (totalFromServer !== null) candidate = Math.max(candidate, totalFromServer);
+            if (awarded !== null) candidate = Math.max(candidate, current + awarded);
+            if (candidate > current) {
+              console.log('Optimistic WS points update:', { current, totalFromServer, awarded, candidate });
+              updateUser({ ...user, points: candidate });
+            } else {
+              console.log('No WS points increase applied:', { current, totalFromServer, awarded, candidate });
+            }
+          }
           setStatus('Completed');
           setIsScanning(false);
         }
@@ -143,7 +171,7 @@ export default function ScanPage() {
         ws.close();
       }
     };
-  }, [token]);
+  }, [token, updateUser, user]);
 
   const startCamera = async () => {
     try {
@@ -303,6 +331,28 @@ export default function ScanPage() {
       
       const data = await response.json();
       setResult(data);
+      // Update user points in context after completing scan via HTTP
+      console.log('HTTP scan result:', data);
+      console.log('Current user points:', user?.points);
+      console.log('Current user object:', user);
+      console.log('data.total_points:', data?.total_points);
+      console.log('data.total_points type:', typeof data?.total_points);
+      if (data && user) {
+        const current = user?.points ?? 0;
+        const totalFromServer = typeof data.total_points === 'number' ? data.total_points : null;
+        const awarded = typeof data.points === 'number' ? data.points : (
+          typeof data.points_awarded === 'number' ? data.points_awarded : null
+        );
+        let candidate = current;
+        if (totalFromServer !== null) candidate = Math.max(candidate, totalFromServer);
+        if (awarded !== null) candidate = Math.max(candidate, current + awarded);
+        if (candidate > current) {
+          console.log('Optimistic HTTP points update:', { current, totalFromServer, awarded, candidate });
+          updateUser({ ...user, points: candidate });
+        } else {
+          console.log('No HTTP points increase applied:', { current, totalFromServer, awarded, candidate });
+        }
+      }
       setStatus('Scan completed');
       
     } catch (error) {
@@ -350,60 +400,6 @@ export default function ScanPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 bg-green-600 rounded-full flex items-center justify-center">
-                  <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                </div>
-                <h1 className="text-xl font-semibold text-gray-900">SmartBin</h1>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">{user?.name || user?.email || 'User'}</span>
-                  <span className="ml-2">• {user?.points || 0} points</span>
-                </div>
-                <NotificationBell />
-                <button
-                  onClick={() => router.push('/history')}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  History
-                </button>
-                <button
-                  onClick={() => router.push('/statistics')}
-                  className="text-sm text-green-600 hover:text-green-800"
-                >
-                  Statistics
-                </button>
-                <button
-                  onClick={() => router.push('/statistics#leaderboard')}
-                  className="text-sm text-purple-600 hover:text-purple-800"
-                >
-                  Leaderboard
-                </button>
-                <button
-                  onClick={() => router.push('/education')}
-                  className="text-sm text-indigo-600 hover:text-indigo-800"
-                >
-                  Education
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

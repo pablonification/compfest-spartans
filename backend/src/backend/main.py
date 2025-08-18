@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
-from .routers import health, scan, ws, auth, notification, statistics, educational
+from .routers import health, scan, ws, auth, notification, statistics, educational, transactions
 from .routers.rag import router as rag_router  # import rag separately after routers package initialized
 from pathlib import Path
 from .db.mongo import connect_to_mongo, close_mongo_connection
@@ -27,7 +27,7 @@ Path("debug_images").mkdir(exist_ok=True)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, restrict this to your frontend domain
-    allow_credentials=True,
+    allow_credentials=False,  # Must be False when allow_origins is "*" or CORS header is omitted
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -39,6 +39,7 @@ app.include_router(auth.router)
 app.include_router(notification.router)
 app.include_router(statistics.router)
 app.include_router(educational.router)
+app.include_router(transactions.router)
 app.include_router(rag_router)
 
 # Serve saved debug images under /debug

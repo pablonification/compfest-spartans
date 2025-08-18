@@ -145,9 +145,9 @@ export default function Leaderboard() {
                 <div className="font-semibold text-gray-900">
                   {rank.name || `User ${rank.user_id.slice(-4)}`}
                 </div>
-                <div className="text-sm text-gray-500">
+                {/* <div className="text-sm text-gray-500">
                   {rank.total_scans || 0} scan sessions
-                </div>
+                </div> */}
               </div>
             </div>
 

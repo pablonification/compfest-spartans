@@ -9,6 +9,7 @@ from ..schemas.statistics import (
     LeaderboardResponse
 )
 from ..services.statistics_service import StatisticsService
+from ..db.mongo import ensure_connection
 from ..routers.auth import verify_token
 from bson import ObjectId
 
@@ -61,14 +62,20 @@ async def get_leaderboard(
             rank["rank"] = i + 1
         
         # Get total participants count
-        total_participants = len(rankings)  # Simplified for now
+        # Count unique participants with at least one valid scan across all data
+        try:
+            db = await ensure_connection()
+            distinct_emails = await db["scans"].distinct("user_email", {"valid": True})
+            total_participants = len(distinct_emails)
+        except Exception:
+            total_participants = len(rankings)
         
         # Get current user's rank
         user_id = payload["sub"]
         user_rank = None
         for rank in rankings:
-            if rank["user_id"] == user_id:
-                user_rank = rank["rank"]
+            if str(rank.get("user_id")) == str(user_id):
+                user_rank = rank.get("rank")
                 break
         
         return LeaderboardResponse(

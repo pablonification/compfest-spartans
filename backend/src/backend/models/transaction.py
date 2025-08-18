@@ -30,6 +30,7 @@ class TransactionCreate(MongoBaseModel):
     user_id: str
     scan_id: str
     amount: int
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     class Config:
         """Pydantic configuration."""

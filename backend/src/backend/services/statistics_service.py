@@ -5,7 +5,7 @@ from typing import Optional
 from bson import ObjectId
 
 from ..models.statistics import PersonalStatistics, StatisticsSummary
-from ..db.mongo import get_database
+from ..db.mongo import ensure_connection
 
 
 class StatisticsService:
@@ -14,9 +14,9 @@ class StatisticsService:
     def __init__(self):
         pass
     
-    def _get_collections(self):
-        db = get_database()
-        return db.scans, db.users, db.personal_statistics
+    async def _get_collections(self):
+        db = await ensure_connection()
+        return db["scans"], db["users"], db["personal_statistics"]
     
     async def calculate_user_statistics(self, user_id: str | ObjectId) -> StatisticsSummary:
         """Calculate comprehensive statistics for a user."""
@@ -24,7 +24,27 @@ class StatisticsService:
             if isinstance(user_id, str):
                 user_id = ObjectId(user_id)
             
-            scans_collection, _, _ = self._get_collections()
+            scans_collection, users_collection, _ = await self._get_collections()
+
+            # Resolve user's email from users collection since scans store user_email
+            if isinstance(user_id, str):
+                user_obj_id = ObjectId(user_id)
+            else:
+                user_obj_id = user_id
+            user_doc = await users_collection.find_one({"_id": user_obj_id})
+            if not user_doc:
+                return StatisticsSummary(
+                    total_bottles=0,
+                    total_points=0,
+                    total_scans=0,
+                    plastic_waste_diverted_kg=0.0,
+                    co2_emissions_saved_kg=0.0,
+                    bottles_this_month=0,
+                    points_this_month=0,
+                    current_streak_days=0,
+                    longest_streak_days=0
+                )
+            user_email = user_doc.get("email")
             
             # Get current month start for monthly calculations
             now = datetime.utcnow()
@@ -32,18 +52,18 @@ class StatisticsService:
             
             # Aggregate scans data
             pipeline = [
-                {"$match": {"user_id": user_id}},
+                {"$match": {"user_email": user_email, "valid": True}},
                 {"$group": {
                     "_id": None,
                     "total_scans": {"$sum": 1},
-                    "total_bottles": {"$sum": "$bottle_count"},
-                    "total_points": {"$sum": "$points_earned"},
-                    "last_scan_date": {"$max": "$created_at"},
+                    "total_bottles": {"$sum": 1},
+                    "total_points": {"$sum": "$points"},
+                    "last_scan_date": {"$max": "$timestamp"},
                     "monthly_bottles": {
                         "$sum": {
                             "$cond": [
-                                {"$gte": ["$created_at", month_start]},
-                                "$bottle_count",
+                                {"$gte": ["$timestamp", month_start]},
+                                1,
                                 0
                             ]
                         }
@@ -51,8 +71,8 @@ class StatisticsService:
                     "monthly_points": {
                         "$sum": {
                             "$cond": [
-                                {"$gte": ["$created_at", month_start]},
-                                "$points_earned",
+                                {"$gte": ["$timestamp", month_start]},
+                                "$points",
                                 0
                             ]
                         }
@@ -61,7 +81,8 @@ class StatisticsService:
             ]
             
             try:
-                result = list(scans_collection.aggregate(pipeline))
+                cursor = scans_collection.aggregate(pipeline)
+                result = await cursor.to_list(length=1)
             except Exception as e:
                 print(f"Error aggregating scans for user {user_id}: {str(e)}")
                 # Return default values on aggregation failure
@@ -99,7 +120,7 @@ class StatisticsService:
             co2_emissions_saved_kg = stats.get("total_bottles", 0) * 0.1
             
             # Calculate streak (consecutive days with scans)
-            current_streak, longest_streak = await self._calculate_streak(user_id)
+            current_streak, longest_streak = await self._calculate_streak(user_obj_id, user_email)
             
             return StatisticsSummary(
                 total_bottles=stats.get("total_bottles", 0),
@@ -130,16 +151,16 @@ class StatisticsService:
                 longest_streak_days=0
             )
     
-    async def _calculate_streak(self, user_id: ObjectId) -> tuple[int, int]:
+    async def _calculate_streak(self, user_id: ObjectId, user_email: str) -> tuple[int, int]:
         """Calculate current and longest streak of consecutive days with scans."""
         try:
-            scans_collection, _, _ = self._get_collections()
+            scans_collection, _, _ = await self._get_collections()
             
             # Get all scan dates for user - convert cursor to list to avoid iteration issues
             scan_dates_cursor = scans_collection.find(
-                {"user_id": user_id},
-                {"created_at": 1}
-            ).sort("created_at", -1)
+                {"user_email": user_email, "valid": True},
+                {"timestamp": 1}
+            ).sort("timestamp", -1)
             
             # Convert cursor to list to avoid Motor cursor iteration issues
             scan_dates = await scan_dates_cursor.to_list(length=None)
@@ -150,7 +171,7 @@ class StatisticsService:
             dates = []
             for scan in scan_dates:
                 # Convert to date only (remove time)
-                scan_date = scan["created_at"].date()
+                scan_date = scan["timestamp"].date()
                 if scan_date not in dates:
                     dates.append(scan_date)
             
@@ -209,7 +230,7 @@ class StatisticsService:
         if isinstance(user_id, str):
             user_id = ObjectId(user_id)
         
-        scans_collection, users_collection, statistics_collection = self._get_collections()
+        scans_collection, users_collection, statistics_collection = await self._get_collections()
         
         # Update or create statistics document
         update_data = {
@@ -242,34 +263,35 @@ class StatisticsService:
     async def get_user_rankings(self, limit: int = 10) -> list[dict]:
         """Get top users by total bottles recycled."""
         try:
-            scans_collection, _, _ = self._get_collections()
+            scans_collection, users_collection, _ = await self._get_collections()
             
             pipeline = [
+                {"$match": {"valid": True}},
                 {"$group": {
-                    "_id": "$user_id",
-                    "total_bottles": {"$sum": "$bottle_count"},
-                    "total_points": {"$sum": "$points_earned"}
+                    "_id": "$user_email",
+                    "total_bottles": {"$sum": 1},
+                    "total_points": {"$sum": "$points"}
                 }},
                 {"$sort": {"total_bottles": -1}},
                 {"$limit": limit},
                 {"$lookup": {
                     "from": "users",
                     "localField": "_id",
-                    "foreignField": "_id",
+                    "foreignField": "email",
                     "as": "user_info"
                 }},
-                {"$unwind": "$user_info"},
+                {"$unwind": {"path": "$user_info", "preserveNullAndEmptyArrays": True}},
                 {"$project": {
-                    "user_id": "$_id",
-                    "name": "$user_info.name",
+                    "user_id": {"$toString": "$user_info._id"},
+                    "name": {"$ifNull": ["$user_info.name", "$_id"]},
                     "total_bottles": 1,
                     "total_points": 1
                 }}
             ]
             
             try:
-                # Convert aggregation cursor to list to avoid Motor cursor iteration issues
-                rankings = list(scans_collection.aggregate(pipeline))
+                cursor = scans_collection.aggregate(pipeline)
+                rankings = await cursor.to_list(length=limit)
                 return rankings
             except Exception as e:
                 print(f"Error getting user rankings: {str(e)}")

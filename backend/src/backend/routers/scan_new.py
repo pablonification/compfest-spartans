@@ -10,7 +10,7 @@ from ..services.opencv_service import BottleMeasurer, MeasurementError
 from ..services.roboflow_service import RoboflowClient
 from ..services.validation_service import validate_scan
 from ..services.transaction_service import get_transaction_service
-from ..db.mongo import mongo_db
+from ..db.mongo import ensure_connection
 from ..schemas.scan import ScanResponse
 from ..services.iot_client import SmartBinClient
 from ..services.ws_manager import manager
@@ -86,20 +86,20 @@ async def scan_bottle(
     # Store scan result
     scan_id = None
     try:
-        if mongo_db:
-            scan_result = await mongo_db["scans"].insert_one({
-                "brand": validation_result.brand,
-                "confidence": validation_result.confidence,
-                "measurement": validation_result.measurement.__dict__,
-                "points": validation_result.points_awarded,
-                "valid": validation_result.is_valid,
-                "reason": validation_result.reason,
-                "iot_events": iot_events,
-                "user_email": user_email,
-                "timestamp": datetime.now(timezone.utc),
-            })
-            scan_id = str(scan_result.inserted_id)
-            logger.info("Scan saved successfully with ID: %s", scan_id)
+        db = await ensure_connection()
+        scan_result = await db["scans"].insert_one({
+            "brand": validation_result.brand,
+            "confidence": validation_result.confidence,
+            "measurement": validation_result.measurement.__dict__,
+            "points": validation_result.points_awarded,
+            "valid": validation_result.is_valid,
+            "reason": validation_result.reason,
+            "iot_events": iot_events,
+            "user_email": user_email,
+            "timestamp": datetime.now(timezone.utc),
+        })
+        scan_id = str(scan_result.inserted_id)
+        logger.info("Scan saved successfully with ID: %s", scan_id)
     except Exception as exc:
         logger.error("Failed to save scan to DB: %s", exc)
 

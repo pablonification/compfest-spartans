@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function HistoryPage() {
-  const { user, token, logout, getAuthHeaders } = useAuth();
+  const { user, token, logout, updateUser } = useAuth();
   const router = useRouter();
   const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState({
@@ -61,6 +61,12 @@ export default function HistoryPage() {
 
       setTransactions(transactionsData);
       setSummary(summaryData);
+      // Ensure user points stay in sync with backend summary
+      if (summaryData && typeof summaryData.total_points === 'number') {
+        if (user) {
+          updateUser({ ...user, points: summaryData.total_points });
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch data:', err);
       setError('Failed to load transaction history');
@@ -116,7 +122,7 @@ export default function HistoryPage() {
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
                 <span className="font-medium">{user.name || user.email}</span>
-                <span className="ml-2">• {user.points} points</span>
+                <span className="ml-2">• {(typeof user.points === 'number' && user.points >= 0) ? user.points : 0} points</span>
               </div>
               <button
                 onClick={() => router.push('/scan')}
@@ -145,7 +151,7 @@ export default function HistoryPage() {
         </div>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -198,7 +204,7 @@ export default function HistoryPage() {
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
+          {/* <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
@@ -214,9 +220,9 @@ export default function HistoryPage() {
                 </p>
               </div>
             </div>
-          </div>
+          </div> */}
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
+          {/* <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
@@ -232,7 +238,7 @@ export default function HistoryPage() {
                 </p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center">
@@ -327,12 +333,12 @@ export default function HistoryPage() {
                         {transaction.valid ? 'Valid' : 'Invalid'}
                       </span>
                       
-                      {transaction.valid && transaction.points > 0 && (
+                                            {transaction.valid && transaction.points > 0 && (
                         <div className="text-right">
                           <p className="text-sm font-medium text-green-600">+{transaction.points} pts</p>
-                          {transaction.measurement && (
+                          {transaction.measurement && transaction.measurement.volume_ml > 0 && (
                             <p className="text-xs text-gray-500">
-                              {transaction.measurement.volume_ml?.toFixed(1)} ml
+                              {(transaction.measurement.volume_ml / 1000).toFixed(1)} L
                             </p>
                           )}
                         </div>

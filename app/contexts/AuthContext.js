@@ -27,6 +27,8 @@ export function AuthProvider({ children }) {
             setToken(storedToken);
             setUser(JSON.parse(storedUser));
             console.log('Token loaded successfully, expires:', new Date(tokenData.exp * 1000));
+            // Hydrate latest points once at boot to avoid stale 0
+            hydratePointsFromSummary(storedToken, JSON.parse(storedUser));
           } else {
             // Token expired, remove from storage
             console.log('Token expired, removing from storage');
@@ -48,6 +50,30 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
+  const hydratePointsFromSummary = async (validToken, existingUser) => {
+    try {
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/scan/transactions/summary`, {
+        headers: {
+          'Authorization': `Bearer ${validToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const newTotal = data?.total_points;
+      if (typeof newTotal === 'number') {
+        const current = (existingUser?.points ?? 0);
+        if (newTotal >= current) {
+          const merged = { ...existingUser, points: newTotal };
+          setUser(merged);
+          localStorage.setItem('smartbin_user', JSON.stringify(merged));
+        }
+      }
+    } catch (e) {
+      console.warn('hydratePointsFromSummary failed:', e);
+    }
+  };
+
   const login = (userData, userToken) => {
     if (!userToken || userToken === 'null') {
       console.error('Invalid token provided to login');
@@ -59,6 +85,37 @@ export function AuthProvider({ children }) {
     setToken(userToken);
     localStorage.setItem('smartbin_token', userToken);
     localStorage.setItem('smartbin_user', JSON.stringify(userData));
+
+    // Immediately sync points from backend so navbar reflects correct total
+    syncPointsFromBackend(userToken, userData);
+  };
+
+  /**
+   * Fetch user's total points from backend summary and update context
+   */
+  const syncPointsFromBackend = async (validToken, existingUser) => {
+    if (!validToken) return;
+    try {
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/scan/transactions/summary`, {
+        headers: {
+          'Authorization': `Bearer ${validToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const newTotal = data?.total_points;
+      if (typeof newTotal === 'number') {
+        const current = existingUser?.points ?? 0;
+        if (newTotal >= current) {
+          const merged = { ...existingUser, points: newTotal };
+          setUser(merged);
+          localStorage.setItem('smartbin_user', JSON.stringify(merged));
+        }
+      }
+    } catch (e) {
+      console.warn('syncPointsFromBackend failed:', e);
+    }
   };
 
   const logout = () => {
@@ -70,8 +127,16 @@ export function AuthProvider({ children }) {
   };
 
   const updateUser = (userData) => {
+    console.log('updateUser called with:', userData);
+    console.log('Previous user state:', user);
+    console.log('userData type:', typeof userData);
+    console.log('userData keys:', Object.keys(userData || {}));
+    console.log('userData.points:', userData?.points);
+    console.log('Previous user.points:', user?.points);
     setUser(userData);
     localStorage.setItem('smartbin_user', JSON.stringify(userData));
+    console.log('User state updated to:', userData);
+    console.log('localStorage smartbin_user:', localStorage.getItem('smartbin_user'));
   };
 
   const getAuthHeaders = () => {

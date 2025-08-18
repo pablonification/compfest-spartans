@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { makeAuthenticatedRequest } from '../utils/auth';
 
@@ -9,12 +9,17 @@ export default function StatisticsDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const fetchedOnceRef = useRef(false);
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
-    if (auth.user && auth.token) {
-      fetchStatistics();
-    }
-  }, [auth.user, auth.token]);
+    if (!auth?.token) return;
+    if (fetchedOnceRef.current || fetchingRef.current) return;
+    fetchedOnceRef.current = true;
+    fetchingRef.current = true;
+    fetchStatistics().finally(() => { fetchingRef.current = false; });
+    // Re-fetch when token changes; do not depend on auth.user to avoid loops from updateUser
+  }, [auth.token]);
 
   const fetchStatistics = async () => {
     const data = await makeAuthenticatedRequest(
@@ -27,6 +32,12 @@ export default function StatisticsDashboard() {
     
     if (data) {
       setStats(data);
+      // Keep user points in sync with personal statistics data
+      if (typeof data.total_points === 'number' && auth.updateUser) {
+        if (auth.user) {
+          auth.updateUser({ ...auth.user, points: data.total_points });
+        }
+      }
     }
   };
 

@@ -10,7 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 from src.backend.domain.interfaces.transaction_repository import TransactionRepository
 from src.backend.models.transaction import Transaction, TransactionCreate
-from src.backend.db.mongo import mongo_db
+from src.backend.db.mongo import ensure_connection
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +21,18 @@ class MongoDBTransactionRepository(TransactionRepository):
     def __init__(self):
         """Initialize the MongoDB transaction repository."""
         self.collection: Optional[AsyncIOMotorCollection] = None
-        if mongo_db:
-            self.collection = mongo_db.transactions
     
-    def _get_collection(self) -> AsyncIOMotorCollection:
+    async def _get_collection(self) -> AsyncIOMotorCollection:
         """Get the transactions collection, ensuring it exists."""
         if not self.collection:
-            if not mongo_db:
-                raise RuntimeError("MongoDB connection not established")
-            self.collection = mongo_db.transactions
+            db = await ensure_connection()
+            self.collection = db.transactions
         return self.collection
     
     async def create_transaction(self, transaction: TransactionCreate) -> Optional[Transaction]:
         """Create a new transaction record."""
         try:
-            collection = self._get_collection()
+            collection = await self._get_collection()
             
             # Convert string IDs to ObjectId
             transaction_doc = {
@@ -71,7 +68,7 @@ class MongoDBTransactionRepository(TransactionRepository):
     async def get_transaction_by_id(self, transaction_id: str) -> Optional[Transaction]:
         """Get transaction by ID."""
         try:
-            collection = self._get_collection()
+            collection = await self._get_collection()
             
             # Convert string ID to ObjectId
             object_id = ObjectId(transaction_id)
@@ -98,7 +95,7 @@ class MongoDBTransactionRepository(TransactionRepository):
     ) -> List[Transaction]:
         """Get transactions for a specific user with pagination."""
         try:
-            collection = self._get_collection()
+            collection = await self._get_collection()
             
             # Convert string ID to ObjectId
             object_id = ObjectId(user_id)
@@ -123,7 +120,7 @@ class MongoDBTransactionRepository(TransactionRepository):
     async def get_transaction_by_scan_id(self, scan_id: str) -> Optional[Transaction]:
         """Get transaction by scan ID (one-to-one relationship)."""
         try:
-            collection = self._get_collection()
+            collection = await self._get_collection()
             
             # Convert string ID to ObjectId
             object_id = ObjectId(scan_id)
