@@ -8,14 +8,17 @@ from .routers.payout import router as payout_router
 from .routers.rag import router as rag_router  # import rag separately after routers package initialized
 from pathlib import Path
 from .db.mongo import connect_to_mongo, close_mongo_connection
+from .services.ws_manager import start_websocket_manager, stop_websocket_manager
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
+    await start_websocket_manager()
     yield
     # Shutdown
+    await stop_websocket_manager()
     await close_mongo_connection()
 
 

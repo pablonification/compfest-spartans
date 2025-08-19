@@ -108,6 +108,185 @@ class NotificationService:
             priority=1
         )
     
+    async def create_system_maintenance_notification(
+        self,
+        user_id: str | ObjectId,
+        maintenance_type: str,
+        estimated_duration: str = "1-2 jam"
+    ) -> Notification:
+        """Create a system maintenance notification."""
+        title = "Maintenance Sistem"
+        message = f"Sistem akan melakukan maintenance untuk {maintenance_type}. Estimasi waktu: {estimated_duration}."
+        
+        return await self.create_notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            notification_type="system",
+            priority=2
+        )
+    
+    async def create_bin_full_notification_for_all_users(
+        self,
+        bin_id: str,
+        location: str = "Lokasi tidak diketahui"
+    ) -> List[Notification]:
+        """Create bin full notifications for all users."""
+        db = await ensure_connection()
+        users_collection = db.users
+        
+        # Get all users
+        users = await users_collection.find({}).to_list(length=None)
+        
+        notifications = []
+        for user in users:
+            # Check if user wants bin status notifications
+            settings = await self.get_or_create_settings(user["_id"])
+            if settings.bin_status_notifications:
+                notification = await self.create_bin_status_notification(
+                    user_id=user["_id"],
+                    bin_id=bin_id,
+                    bin_status="full",
+                    message=f"Tong sampah di {location} sudah penuh. Silakan gunakan tong sampah lain atau tunggu sampai dikosongkan."
+                )
+                notifications.append(notification)
+        
+        return notifications
+    
+    async def create_achievement_notification_for_milestone(
+        self,
+        user_id: str | ObjectId,
+        bottle_count: int
+    ) -> Optional[Notification]:
+        """Create achievement notifications for bottle milestones."""
+        milestones = [10, 25, 50, 100, 250, 500, 1000]
+        
+        if bottle_count in milestones:
+            achievement_type = f"Botol ke-{bottle_count}"
+            message = f"Selamat! Anda telah membuang {bottle_count} botol. Teruskan semangat peduli lingkungan Anda!"
+            
+            return await self.create_achievement_notification(
+                user_id=user_id,
+                achievement_type=achievement_type,
+                achievement_value=bottle_count,
+                message=message
+            )
+        
+        return None
+    
+    async def create_weekly_summary_notification(
+        self,
+        user_id: str | ObjectId,
+        bottle_count: int,
+        points_earned: int,
+        week_start: str,
+        week_end: str
+    ) -> Notification:
+        """Create a weekly summary notification."""
+        title = "Ringkasan Mingguan"
+        message = f"Selama minggu {week_start} - {week_end}, Anda telah membuang {bottle_count} botol dan mendapatkan {points_earned} poin. Terima kasih atas kontribusi Anda!"
+        
+        return await self.create_notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            notification_type="system",
+            priority=1
+        )
+    
+    async def create_environmental_impact_notification(
+        self,
+        user_id: str | ObjectId,
+        bottles_recycled: int,
+        co2_saved: float
+    ) -> Notification:
+        """Create an environmental impact notification."""
+        title = "Dampak Lingkungan Positif!"
+        message = f"Berkat Anda, {bottles_recycled} botol telah didaur ulang dan {co2_saved:.2f}kg CO2 telah dihemat. Terima kasih telah berkontribusi untuk bumi yang lebih hijau!"
+        
+        return await self.create_notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            notification_type="achievement",
+            priority=2
+        )
+    
+    async def create_leaderboard_notification(
+        self,
+        user_id: str | ObjectId,
+        rank: int,
+        total_users: int
+    ) -> Notification:
+        """Create a leaderboard position notification."""
+        title = "Posisi Leaderboard"
+        
+        if rank <= 3:
+            message = f"Selamat! Anda berada di posisi {rank} dari {total_users} pengguna. Pertahankan posisi terbaik Anda!"
+        elif rank <= 10:
+            message = f"Bagus! Anda berada di posisi {rank} dari {total_users} pengguna. Lanjutkan untuk naik ke posisi teratas!"
+        else:
+            message = f"Anda berada di posisi {rank} dari {total_users} pengguna. Teruskan semangat untuk naik ke posisi teratas!"
+        
+        return await self.create_notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            notification_type="achievement",
+            priority=1
+        )
+    
+    async def create_new_feature_notification(
+        self,
+        user_id: str | ObjectId,
+        feature_name: str,
+        feature_description: str
+    ) -> Notification:
+        """Create a new feature announcement notification."""
+        title = f"Fitur Baru: {feature_name}"
+        message = f"Kami telah menambahkan fitur baru: {feature_description}. Coba fitur ini sekarang!"
+        
+        return await self.create_notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            notification_type="system",
+            priority=2,
+            action_url="/features",
+            action_text="Lihat Fitur"
+        )
+    
+    async def should_send_notification(
+        self,
+        user_id: str | ObjectId,
+        notification_type: str
+    ) -> bool:
+        """Check if notification should be sent based on user settings and quiet hours."""
+        settings = await self.get_or_create_settings(user_id)
+        
+        # Check if user has enabled this type of notification
+        if notification_type == "bin_status" and not settings.bin_status_notifications:
+            return False
+        elif notification_type == "achievement" and not settings.achievement_notifications:
+            return False
+        elif notification_type == "reward" and not settings.reward_notifications:
+            return False
+        elif notification_type == "system" and not settings.system_notifications:
+            return False
+        
+        # Check quiet hours
+        current_hour = datetime.utcnow().hour
+        if settings.quiet_hours_start <= settings.quiet_hours_end:
+            # Normal case: start < end (e.g., 22:00 - 07:00)
+            if settings.quiet_hours_start <= current_hour <= 23 or 0 <= current_hour <= settings.quiet_hours_end:
+                return False
+        else:
+            # Wrapped case: start > end (e.g., 22:00 - 07:00)
+            if current_hour >= settings.quiet_hours_start or current_hour <= settings.quiet_hours_end:
+                return False
+        
+        return True
+    
     async def get_user_notifications(
         self,
         user_id: str | ObjectId,

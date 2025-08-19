@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../contexts/AuthContext";
+import NotificationBell from "./NotificationBell";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -26,13 +27,14 @@ export default function Navbar() {
         {/* Spacer */}
         <div className="ml-auto" />
 
-        {/* User info + logout */}
+        {/* User info + NotificationBell + logout */}
         {token && user && (
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-700">
               <span className="font-medium">{user.name || user.email}</span>
               <span className="ml-2">• {(typeof user.points === 'number' && user.points >= 0) ? user.points : 0} points</span>
             </div>
+            <NotificationBell />
             <button
               onClick={() => { logout(); router.push('/login'); }}
               className="text-sm text-gray-600 hover:text-gray-800"

@@ -93,10 +93,10 @@ export default function ScanPage() {
   useEffect(() => {
     if (!token) return;
     
-    // Fix WebSocket URL to use localhost instead of container name
+    // Fix WebSocket URL to use notifications endpoint for user
     const apiUrl = process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000';
     const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-    const fullWsUrl = `${wsUrl}/ws/status`;
+    const fullWsUrl = `${wsUrl}/ws/notifications/${user?.id || user?._id}`;
     
     console.log('API URL:', apiUrl);
     console.log('WebSocket URL:', wsUrl);
@@ -528,6 +528,36 @@ export default function ScanPage() {
                     </>
                   )}
                   <div>Captured Image: {capturedImage ? `${capturedImage.size} bytes` : 'None'}</div>
+                  
+                  {/* Test Notification Button */}
+                  <div className="mt-3 pt-3 border-t border-gray-300">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/notifications/test-create-sample', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ type: 'system', count: 1 })
+                          });
+                          if (response.ok) {
+                            const result = await response.json();
+                            alert(`Test notification created: ${result.message}`);
+                          } else {
+                            alert('Failed to create test notification');
+                          }
+                        } catch (error) {
+                          console.error('Error creating test notification:', error);
+                          alert('Error creating test notification');
+                        }
+                      }}
+                      className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                    >
+                      Test Notification
+                    </button>
+                  </div>
                 </div>
               </details>
             </div>
@@ -609,9 +639,9 @@ export default function ScanPage() {
         </div>
         
         {/* WebSocket Test Component for Debugging */}
-        {/* <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <WebSocketTest />
-        </div> */}
+        </div>
       </div>
     </ProtectedRoute>
   );
