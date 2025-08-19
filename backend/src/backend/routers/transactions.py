@@ -10,7 +10,7 @@ from ..services.transaction_service import get_transaction_service
 from ..routers.auth import verify_token
 from ..models.transaction import TransactionResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/api", tags=["transactions"])
 logger = logging.getLogger(__name__)
 
 transaction_service = get_transaction_service()

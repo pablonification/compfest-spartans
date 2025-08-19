@@ -256,7 +256,49 @@ async def get_user_transaction_summary(payload: dict = Depends(verify_token)):
         if not user_email:
             raise HTTPException(status_code=401, detail="Invalid user token")
         
+        logger.info("Starting transaction summary for user: %s", user_email)
+        
         db = await ensure_connection()
+        logger.info("MongoDB connection established")
+        
+        # First check if user exists and get their current points
+        user_doc = await db["users"].find_one({"email": user_email})
+        total_points = (user_doc.get("points", 0) if user_doc else 0) or 0
+        logger.info("User points: %s", total_points)
+        
+        # Check if scans collection exists and has data
+        collections = await db.list_collection_names()
+        logger.info("Available collections: %s", collections)
+        
+        if "scans" not in collections:
+            logger.warning("Scans collection does not exist")
+            summary = {
+                "total_scans": 0,
+                "valid_scans": 0,
+                "total_points": total_points,
+                "success_rate": 0.0,
+                "average_confidence": 0.0,
+                "total_volume_ml": 0.0
+            }
+            return summary
+        
+        # Check if there are any scans for this user
+        scan_count = await db["scans"].count_documents({"user_email": user_email})
+        logger.info("Found %d scans for user %s", scan_count, user_email)
+        
+        if scan_count == 0:
+            summary = {
+                "total_scans": 0,
+                "valid_scans": 0,
+                "total_points": total_points,
+                "success_rate": 0.0,
+                "average_confidence": 0.0,
+                "total_volume_ml": 0.0
+            }
+            logger.info("No scans found for user %s, returning empty summary", user_email)
+            return summary
+        
+        # Use a safer aggregation pipeline that handles missing fields
         pipeline = [
             {"$match": {"user_email": user_email}},
             {
@@ -264,23 +306,39 @@ async def get_user_transaction_summary(payload: dict = Depends(verify_token)):
                     "_id": None,
                     "total_scans": {"$sum": 1},
                     "valid_scans": {"$sum": {"$cond": ["$valid", 1, 0]}},
-                    "total_points": {"$sum": "$points"},
-                    "total_confidence": {"$sum": "$confidence"},
-                    "total_volume_ml": {"$sum": "$measurement.volume_ml"},
-                    "avg_confidence": {"$avg": "$confidence"}
+                    "total_points": {"$sum": {"$ifNull": ["$points", 0]}},
+                    "total_confidence": {"$sum": {"$ifNull": ["$confidence", 0.0]}},
+                    "total_volume_ml": {"$sum": {"$ifNull": ["$measurement.volume_ml", 0.0]}},
+                    "avg_confidence": {"$avg": {"$ifNull": ["$confidence", 0.0]}}
                 }
             }
         ]
         
-        cursor = db["scans"].aggregate(pipeline)
-        result = await cursor.next()
+        try:
+            logger.info("Executing aggregation pipeline")
+            cursor = db["scans"].aggregate(pipeline)
+            result = await cursor.next()
+            logger.info("Aggregation successful, result: %s", result)
+        except Exception as agg_error:
+            logger.warning("Aggregation failed for user %s, using fallback: %s", user_email, agg_error)
+            # Fallback: use simple find operations
+            total_scans = await db["scans"].count_documents({"user_email": user_email})
+            valid_scans = await db["scans"].count_documents({"user_email": user_email, "valid": True})
+            
+            summary = {
+                "total_scans": total_scans,
+                "valid_scans": valid_scans,
+                "total_points": total_points,
+                "success_rate": round((valid_scans / total_scans * 100) if total_scans > 0 else 0.0, 1),
+                "average_confidence": 0.0,
+                "total_volume_ml": 0.0
+            }
+            logger.info("Retrieved summary for user %s using fallback: %s", user_email, summary)
+            return summary
         
         if result:
             total_scans = result.get("total_scans", 0) or 0
             valid_scans = result.get("valid_scans", 0) or 0
-            # Use authoritative points from users collection to reflect withdrawals
-            user_doc = await db["users"].find_one({"email": user_email})
-            total_points = (user_doc.get("points", 0) if user_doc else 0) or 0
             total_volume_ml = result.get("total_volume_ml", 0.0) or 0.0
             avg_confidence = result.get("avg_confidence", 0.0) or 0.0
             
@@ -299,7 +357,7 @@ async def get_user_transaction_summary(payload: dict = Depends(verify_token)):
             summary = {
                 "total_scans": 0,
                 "valid_scans": 0,
-                "total_points": 0,
+                "total_points": total_points,
                 "success_rate": 0.0,
                 "average_confidence": 0.0,
                 "total_volume_ml": 0.0
@@ -309,5 +367,6 @@ async def get_user_transaction_summary(payload: dict = Depends(verify_token)):
         return summary
         
     except Exception as exc:
-        logger.error("Failed to fetch transaction summary: %s", exc)
+        logger.error("Failed to fetch transaction summary for user %s: %s", 
+                    payload.get("email", "unknown"), str(exc), exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch transaction summary")
