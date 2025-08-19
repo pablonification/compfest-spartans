@@ -17,44 +17,68 @@ settings = get_settings()
 def verify_jwt_token(token: str) -> Optional[dict]:
     """Verify JWT token and return payload (for WebSocket use)"""
     try:
+        logger.info(f"Verifying JWT token: {token[:20]}...")
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        logger.info(f"JWT token decoded successfully, payload keys: {list(payload.keys())}")
         return payload
     except jwt.ExpiredSignatureError:
         logger.warning("Token expired")
         return None
-    except jwt.InvalidTokenError:
-        logger.warning("Invalid token")
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {e}")
         return None
     except Exception as e:
         logger.error(f"Error verifying token: {e}")
         return None
 
 
-async def get_current_user_from_token(token: str) -> Optional[User]:
-    """Get current user from JWT token."""
-    try:
-        from bson import ObjectId
-        from ..db.mongo import ensure_connection
-        
-        # Verify token
-        payload = verify_jwt_token(token)
-        if not payload:
+async def get_current_user_from_token(token: str, max_retries: int = 3) -> Optional[User]:
+    """Get current user from JWT token with retry logic for new users."""
+    for attempt in range(max_retries):
+        try:
+            from bson import ObjectId
+            from ..db.mongo import ensure_connection
+            
+            # Verify token
+            logger.info(f"Attempting to verify JWT token (attempt {attempt + 1}/{max_retries})")
+            payload = verify_jwt_token(token)
+            if not payload:
+                logger.warning(f"JWT token verification failed on attempt {attempt + 1}")
+                return None
+            
+            logger.info(f"JWT token verified successfully, payload: {payload}")
+            
+            # Get user from database
+            db = await ensure_connection()
+            users_collection = db.users
+            
+            user_id = ObjectId(payload["sub"])
+            logger.info(f"Looking up user with ID: {user_id} (from token sub: {payload['sub']})")
+            user = await users_collection.find_one({"_id": user_id})
+            
+            if user:
+                logger.info(f"User found in database: {user.get('email', 'unknown')}")
+                return User(**user)
+            
+            # If user not found and this is not the last attempt, wait and retry
+            if attempt < max_retries - 1:
+                logger.info(f"User {user_id} not found on attempt {attempt + 1}, retrying in {(attempt + 1) * 0.5}s...")
+                import asyncio
+                await asyncio.sleep((attempt + 1) * 0.5)  # Progressive delay: 0.5s, 1s, 1.5s
+                continue
+            
+            logger.warning(f"User {user_id} not found in database after {max_retries} attempts")
             return None
-        
-        # Get user from database
-        db = await ensure_connection()
-        users_collection = db.users
-        
-        user_id = ObjectId(payload["sub"])
-        user = await users_collection.find_one({"_id": user_id})
-        
-        if user:
-            return User(**user)
-        return None
-        
-    except Exception as e:
-        logger.error(f"Error getting user from token: {e}")
-        return None
+            
+        except Exception as e:
+            logger.error(f"Error getting user from token (attempt {attempt + 1}): {e}")
+            if attempt < max_retries - 1:
+                import asyncio
+                await asyncio.sleep((attempt + 1) * 0.5)
+                continue
+            return None
+    
+    return None
 
 
 @router.websocket("/ws/notifications/{user_id}")
@@ -107,9 +131,10 @@ async def websocket_notifications_endpoint(
                 return
             
             # Verify token and get user
+            logger.info(f"Authenticating WebSocket connection for user {user_id}")
             user = await get_current_user_from_token(token)
             if not user:
-                logger.warning(f"Invalid token for user {user_id}")
+                logger.warning(f"Invalid token for user {user_id} - token validation failed")
                 await websocket.send_text(json.dumps({
                     "type": "error",
                     "message": "Invalid authentication token",
@@ -117,6 +142,8 @@ async def websocket_notifications_endpoint(
                 }))
                 await websocket.close(code=1008, reason="Invalid token")
                 return
+            
+            logger.info(f"Token validation successful for user {user_id} ({user.email})")
             
             if str(user.id) != user_id:
                 logger.warning(f"User ID mismatch: token user {user.id} vs path user {user_id}")

@@ -91,6 +91,7 @@ async def google_callback(code: str):
         
         if existing_user:
             user = User(**existing_user)
+            user_id = str(existing_user["_id"])
         else:
             # Create new user
             user = User(
@@ -99,18 +100,22 @@ async def google_callback(code: str):
                 points=0,
                 scan_ids=[]
             )
-            await users_collection.insert_one(user.dict())
+            # Insert user and get the inserted ID
+            result = await users_collection.insert_one(user.dict())
+            user_id = str(result.inserted_id)
+            # Update the user object with the actual ID from database
+            user.id = result.inserted_id
         
-        # Create JWT token
+        # Create JWT token with the correct user ID
         access_token = create_access_token(
-            data={"sub": str(user.id), "email": user.email}
+            data={"sub": user_id, "email": user.email}
         )
         
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",
             user=UserResponse(
-                id=str(user.id),
+                id=user_id,
                 email=user.email,
                 name=user.name,
                 points=user.points
