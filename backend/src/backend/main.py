@@ -50,6 +50,7 @@ default_allowed_origins = [
     # Production (setorin.app)
     "https://setorin.app",
     "https://www.setorin.app",
+    "https://api.setorin.app",
 ]
 
 def _expand_origin(origin: str) -> list[str]:
