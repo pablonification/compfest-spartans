@@ -52,7 +52,7 @@ export default function EditProfilePage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token || localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${user?.token || localStorage.getItem('smartbin_token')}`,
         },
         body: JSON.stringify({
           name: name.trim(),
@@ -75,7 +75,7 @@ export default function EditProfilePage() {
       updateUser({
         ...user,
         ...updatedUserData,
-        token: user?.token || localStorage.getItem('token'), // Preserve token
+        token: user?.token || localStorage.getItem('smartbin_token'), // Preserve token
       });
 
       // Show success message
