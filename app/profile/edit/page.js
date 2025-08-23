@@ -23,7 +23,7 @@ function Message({ type, message }) {
 
 export default function EditProfilePage() {
   const router = useRouter();
-  const { user, token, updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
@@ -47,26 +47,12 @@ export default function EditProfilePage() {
     setSaving(true);
 
     try {
-      console.log('Profile update attempt:', {
-        apiUrl: process.env.NEXT_PUBLIC_API_URL,
-        token: token ? 'Token exists' : 'No token',
-        user: user?.email,
-        data: {
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim() || null,
-          birthdate: birthdate || null,
-          city: city.trim() || null,
-          gender: gender || null,
-        }
-      });
-
       // Call backend API to update profile
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8000'}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${user?.token || localStorage.getItem('token')}`,
         },
         body: JSON.stringify({
           name: name.trim(),
@@ -78,25 +64,18 @@ export default function EditProfilePage() {
         }),
       });
 
-      console.log('API Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
-
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('API Error:', errorData);
         throw new Error(errorData.detail || 'Failed to update profile');
       }
 
       const updatedUserData = await response.json();
-      console.log('Updated user data from API:', updatedUserData);
 
       // Update local user context with the response from backend
       updateUser({
         ...user,
         ...updatedUserData,
+        token: user?.token || localStorage.getItem('token'), // Preserve token
       });
 
       // Show success message
