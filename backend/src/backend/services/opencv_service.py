@@ -124,7 +124,7 @@ class BottleMeasurer:
         # compatibility so existing calls that still provide the old argument
         # name continue to work. If *ref_real_width_mm* is supplied it will
         # override *ref_real_height_mm*.
-        ref_real_height_mm: float = 160.0,
+        ref_real_height_mm: float = 125.0,
         *,
         ref_real_width_mm: float | None = None,  # legacy alias, optional
         ref_hsv_lower: Tuple[int, int, int] = (0, 0, 0),    # black lower HSV
