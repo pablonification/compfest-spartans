@@ -16,7 +16,7 @@ ENV PYTHONPATH=/app/src
 COPY pyproject.toml /app/
 
 # Install Python dependencies directly from pyproject.toml
-RUN pip install --no-cache-dir "fastapi>=0.116.1" "uvicorn[standard]>=0.35.0" motor pymongo redis python-dotenv requests httpx opencv-python-headless numpy Pillow python-multipart websockets PyJWT python-jose[cryptography] pytest pytest-asyncio inference-sdk langchain langchain-community langgraph chromadb langchain-google-genai
+RUN pip install --no-cache-dir "fastapi>=0.116.1" "uvicorn[standard]>=0.35.0" motor pymongo redis python-dotenv requests httpx "aiohttp>=3.9.0" opencv-python-headless numpy Pillow python-multipart websockets PyJWT python-jose[cryptography] pytest pytest-asyncio inference-sdk langchain langchain-community langgraph chromadb langchain-google-genai
 
 # Copy source code
 COPY src /app/src

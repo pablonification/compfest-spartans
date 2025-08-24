@@ -13,6 +13,7 @@ from ..services.transaction_service import get_transaction_service
 from ..db.mongo import ensure_connection
 from ..schemas.scan import ScanResponse
 from ..services.iot_client import SmartBinClient
+from ..services.esp32_client import ESP32Client
 from ..services.ws_manager import manager
 from ..services.reward_service import add_points
 from ..routers.auth import verify_token
@@ -25,7 +26,8 @@ logger = logging.getLogger(__name__)
 
 bottle_measurer = BottleMeasurer()  # default settings; could be injected
 roboflow_client = RoboflowClient()
-smartbin_client = SmartBinClient()
+smartbin_client = SmartBinClient()  # IoT simulator (fallback)
+esp32_client = ESP32Client()  # Real ESP32 devices (primary)
 transaction_service = get_transaction_service()  # Get transaction service instance
 
 
@@ -113,10 +115,21 @@ async def scan_bottle(
     logger.info("Validation result: is_valid=%s, brand=%s, confidence=%s, reason=%s", 
                 validation_result.is_valid, validation_result.brand, validation_result.confidence, validation_result.reason)
 
-    # 5. Open bin via IoT if valid
+    # 5. Open bin via ESP32 (with fallback to IoT simulator) if valid
     iot_events = []
     if validation_result.is_valid:
-        iot_events = await smartbin_client.open_bin()
+        # Try ESP32 first, fallback to simulator if no devices available
+        iot_events = await esp32_client.open_bin()
+        
+        # If ESP32 failed or no devices available, fallback to simulator
+        if not iot_events:
+            logger.warning("ESP32 control failed or no devices available, falling back to IoT simulator")
+            try:
+                iot_events = await smartbin_client.open_bin()
+                logger.info("Fallback to IoT simulator successful")
+            except Exception as exc:
+                logger.error("Both ESP32 and IoT simulator failed: %s", exc)
+                iot_events = ["fallback_failed"]
 
     user_total_points: Optional[int] = None
     if validation_result.is_valid and user_email:
