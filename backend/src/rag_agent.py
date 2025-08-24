@@ -1,10 +1,7 @@
 """
 Robin AI Agent – RAG app bootstrap
 
-Builds a simple Retrieval-Augmented Generation pipeline over the provided
-markdown knowledge base, exposing an `app.invoke({"messages": [...]}, config)
-API that returns a state containing the conversation messages. Designed to be
-imported by FastAPI router at backend/src/backend/routers/rag.py
+Builds a simple Retrieval-Augmented Generation pipeline over the provided markdown knowledge base.
 """
 from __future__ import annotations
 
@@ -71,7 +68,6 @@ SYSTEM_PROMPT = (
 class SimpleRAGApp:
     def __init__(self) -> None:
         self.retriever = _build_retriever()
-        # Gemini 2.0 Flash (or fallback if env not set)
         self.llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
 
     def _is_related_to_domain(self, query: str) -> bool:
@@ -89,7 +85,6 @@ class SimpleRAGApp:
 
     def invoke(self, state: Dict[str, Any], config: Dict[str, Any] | None = None) -> Dict[str, Any]:
         messages: List[Any] = state.get("messages", [])
-        # Find last human query
         user_query = None
         for m in reversed(messages):
             if isinstance(m, HumanMessage):
@@ -102,7 +97,6 @@ class SimpleRAGApp:
         if not user_query:
             user_query = "Jelaskan ringkas tentang Setorin dan 3R."
 
-        # Check if query is related to our domain
         if not self._is_related_to_domain(user_query):
             rejection_message = (
                 "Maaf, saya adalah asisten khusus untuk topik sampah, daur ulang, lingkungan, dan fitur Setorin. "
@@ -112,7 +106,6 @@ class SimpleRAGApp:
             out_messages = list(messages) + [AIMessage(content=rejection_message)]
             return {"messages": out_messages}
 
-        # Retrieve context for Setorin-specific questions
         contexts = []
         try:
             docs = self.retriever.get_relevant_documents(user_query)
@@ -120,7 +113,6 @@ class SimpleRAGApp:
         except Exception:
             contexts = []
 
-        # Build context-aware prompt
         if contexts:
             context_block = "\n\n".join(contexts[:4])
             prompt = (
@@ -130,20 +122,17 @@ class SimpleRAGApp:
                 "Jawab dengan informasi dari konteks jika tersedia, atau gunakan pengetahuan umum tentang daur ulang dan waste management."
             )
         else:
-            # No specific context, but still answer using general knowledge
             prompt = (
                 f"Pertanyaan: {user_query}\n"
                 "Jawab menggunakan pengetahuan umum tentang daur ulang, waste management, dan best practices lingkungan. "
                 "Meskipun tidak ada konteks spesifik Setorin, berikan jawaban yang bermanfaat dan edukatif."
             )
 
-        # Call LLM
         ai_msg = self.llm.invoke([
             SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(content=prompt),
         ])
 
-        # Return message list as expected
         out_messages = list(messages) + [AIMessage(content=getattr(ai_msg, "content", str(ai_msg)))]
         return {"messages": out_messages}
 
