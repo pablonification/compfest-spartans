@@ -5,6 +5,10 @@
 
 Setorin adalah sistem bank sampah cerdas yang menggabungkan teknologi Web, AI, dan IoT untuk memvalidasi serta memberikan reward setiap kali pengguna membuang botol plastik. Sistem ini menggunakan kecerdasan buatan untuk mengidentifikasi merek botol, mengukur dimensi, dan menghitung volume untuk memastikan keaslian dan kualitas sampah yang dikumpulkan.
 
+## 🌐 Live Demo
+
+**🚀 Deployed Application:** [https://setorin.app](https://setorin.app)
+
 ## 📋 Table of Contents
 
 - [🎯 Tujuan Proyek](#-tujuan-proyek)
