@@ -25,10 +25,10 @@ from bson import ObjectId
 router = APIRouter(prefix="/api/scan", tags=["scan"])
 logger = logging.getLogger(__name__)
 
-bottle_measurer = BottleMeasurer()  # default settings; could be injected
+bottle_measurer = BottleMeasurer()
 roboflow_client = RoboflowClient()
 smartbin_client = SmartBinClient()
-transaction_service = get_transaction_service()  # Get transaction service instance
+transaction_service = get_transaction_service()
 
 
 async def control_esp32_lid(device_id: str, duration_seconds: int = 3):
@@ -36,7 +36,6 @@ async def control_esp32_lid(device_id: str, duration_seconds: int = 3):
     try:
         db = await ensure_connection()
 
-        # Create log entry
         log_result = await db["esp32_logs"].insert_one({
             "device_id": device_id,
             "action": "open",
@@ -45,7 +44,6 @@ async def control_esp32_lid(device_id: str, duration_seconds: int = 3):
             "details": {"duration_seconds": duration_seconds}
         })
 
-        # Call the ESP32 router's control endpoint instead of IoT client directly
         import httpx
         from ..core.config import get_settings
         
@@ -72,13 +70,11 @@ async def control_esp32_lid(device_id: str, duration_seconds: int = 3):
                 response_data = response.json()
                 logger.info("ESP32 control successful: %s", response_data)
                 
-                # Update log as completed
                 await db["esp32_logs"].update_one(
                     {"_id": log_result.inserted_id},
                     {"$set": {"status": "completed", "response": response_data}}
                 )
                 
-                # Return events in the expected format
                 events = [
                     {
                         "event": "lid_opened",
@@ -92,7 +88,6 @@ async def control_esp32_lid(device_id: str, duration_seconds: int = 3):
                 error_message = f"ESP32 control failed with status {response.status_code}: {response.text}"
                 logger.error(error_message)
                 
-                # Update log as error
                 await db["esp32_logs"].update_one(
                     {"_id": log_result.inserted_id},
                     {"$set": {"status": "error", "error_message": error_message}}
@@ -101,7 +96,6 @@ async def control_esp32_lid(device_id: str, duration_seconds: int = 3):
 
     except Exception as exc:
         logger.error("ESP32 control failed: %s", exc)
-        # Update log as error if we have a log_result
         try:
             if 'log_result' in locals():
                 await db["esp32_logs"].update_one(
@@ -113,7 +107,6 @@ async def control_esp32_lid(device_id: str, duration_seconds: int = 3):
         return {"events": [], "error": str(exc)}
 
 
-# Add OPTIONS handlers for CORS preflight
 @router.options("")
 async def scan_options_no_slash():
     """Handle CORS preflight for scan endpoint without slash."""

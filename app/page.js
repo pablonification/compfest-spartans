@@ -36,7 +36,6 @@ export default function HomePage() {
 
   return (
     <div className="w-full min-h-screen bg-[var(--background)] text-[var(--foreground)] font-inter">
-      {/* Header section - sticks to top */}
       <div className="bg-[var(--color-primary-700)] [box-shadow:var(--shadow-card)]">
         <HeaderBar />
         <div className="px-4 pb-4 space-y-4">
@@ -44,7 +43,6 @@ export default function HomePage() {
           <ActionGrid />
         </div>
       </div>
-      {/* Main content with safe area padding */}
       <div className="px-4 pb-32 pt-4 space-y-4">
         <HeroCarousel />
         <HistoryList />
