@@ -7,6 +7,12 @@ from fastapi import APIRouter, HTTPException, status, Query, BackgroundTasks
 from pydantic import BaseModel
 import asyncio
 
+try:
+    from bson import ObjectId
+except ImportError:
+    # Fallback if bson is not available
+    ObjectId = str
+
 from ..db.mongo import ensure_connection
 from ..services.ws_manager import manager
 
@@ -15,6 +21,44 @@ logger = logging.getLogger(__name__)
 
 # Global state for ESP32 connections (in production, use Redis/database)
 esp32_connections: Dict[str, Dict[str, Any]] = {}
+
+# Global state for pending commands (in production, use Redis/database)
+pending_commands: Dict[str, List[Dict[str, Any]]] = {}
+
+async def ensure_device_in_memory(device_id: str) -> bool:
+    """Ensure device exists in memory, loading from database if necessary."""
+    if device_id in esp32_connections:
+        return True
+    
+    # Try to load from database
+    try:
+        db = await ensure_connection()
+        device_doc = await db["esp32_devices"].find_one(
+            {"device_id": device_id, "action": "register"},
+            sort=[("registered_at", -1)]  # Get most recent registration
+        )
+        
+        if not device_doc:
+            logger.warning("ESP32 device %s not found in database", device_id)
+            return False
+        
+        # Re-populate in-memory state from database
+        esp32_connections[device_id] = {
+            "device_id": device_id,
+            "firmware_version": device_doc.get("firmware_version"),
+            "hardware_version": device_doc.get("hardware_version"),
+            "location": device_doc.get("location"),
+            "ip_address": device_doc.get("ip_address"),
+            "status": "online",  # Assume online since it's being accessed
+            "last_seen": datetime.now(timezone.utc),
+            "registered_at": device_doc.get("registered_at", datetime.now(timezone.utc))
+        }
+        logger.info("ESP32 device %s restored to memory from database", device_id)
+        return True
+        
+    except Exception as exc:
+        logger.error("Failed to load device %s from database: %s", device_id, exc)
+        return False
 
 class ESP32Registration(BaseModel):
     device_id: str
@@ -35,6 +79,12 @@ class LidControlRequest(BaseModel):
     device_id: str
     action: str  # "open", "close", "status"
     duration_seconds: Optional[int] = 3  # Default 3 seconds for open
+
+class CommandRequest(BaseModel):
+    device_id: str
+    command: str  # "open_lid", "close_lid"
+    duration_seconds: Optional[int] = 5  # For open_lid command
+    priority: Optional[str] = "normal"  # "high", "normal", "low"
 
 class ActionLog(BaseModel):
     device_id: str
@@ -267,7 +317,6 @@ async def get_esp32_logs(
 async def get_esp32_log_by_id(action_id: str):
     """Get a specific ESP32 log by action ID."""
     try:
-        from bson import ObjectId
         db = await ensure_connection()
 
         log = await db["esp32_logs"].find_one({"_id": ObjectId(action_id)})
@@ -284,6 +333,126 @@ async def get_esp32_log_by_id(action_id: str):
         logger.error("Failed to get ESP32 log: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to get log")
 
+@router.get("/commands")
+async def get_esp32_commands(device_id: str = Query(..., description="Device ID to get commands for")):
+    """Get pending commands for an ESP32 device."""
+    try:
+        # Ensure device exists (in memory or database)
+        if not await ensure_device_in_memory(device_id):
+            raise HTTPException(status_code=404, detail="Device not found")
+        
+        # Update last seen timestamp since device is actively checking for commands
+        esp32_connections[device_id]["last_seen"] = datetime.now(timezone.utc)
+        esp32_connections[device_id]["status"] = "online"
+        
+        # Get pending commands for this device
+        device_commands = pending_commands.get(device_id, [])
+        
+        if not device_commands:
+            # Return 204 No Content when there are no commands
+            from fastapi.responses import Response
+            logger.debug("ESP32 %s: No pending commands", device_id)
+            return Response(status_code=204)
+        
+        # Return the oldest pending command (FIFO)
+        command = device_commands[0]
+        
+        # Remove the command from pending list (it's being processed)
+        pending_commands[device_id] = device_commands[1:]
+        
+        # Log the command retrieval
+        logger.info("ESP32 %s retrieved command: %s", device_id, command["command"])
+        
+        return command
+        
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to get ESP32 commands: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to get commands")
+
+@router.post("/commands", status_code=status.HTTP_201_CREATED)
+async def create_esp32_command(command_request: CommandRequest, background_tasks: BackgroundTasks):
+    """Create a new command for an ESP32 device."""
+    try:
+        device_id = command_request.device_id
+        
+        # Ensure device exists (in memory or database)
+        if not await ensure_device_in_memory(device_id):
+            raise HTTPException(status_code=404, detail="Device not found")
+        
+        # Validate command
+        if command_request.command not in ["open_lid", "close_lid"]:
+            raise HTTPException(status_code=400, detail="Invalid command. Must be 'open_lid' or 'close_lid'")
+        
+        # Create command object
+        command = {
+            "command": command_request.command,
+            "duration_seconds": command_request.duration_seconds,
+            "priority": command_request.priority,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "status": "pending"
+        }
+        
+        # Add to pending commands
+        if device_id not in pending_commands:
+            pending_commands[device_id] = []
+        pending_commands[device_id].append(command)
+        
+        # Log to database
+        db = await ensure_connection()
+        await db["esp32_commands"].insert_one({
+            **command,
+            "device_id": device_id,
+            "created_at": datetime.now(timezone.utc)
+        })
+        
+        logger.info("Created command for ESP32 %s: %s", device_id, command_request.command)
+        
+        # Broadcast command creation to connected clients
+        background_tasks.add_task(
+            manager.broadcast_notification,
+            {
+                "type": "esp32_command",
+                "data": {
+                    "device_id": device_id,
+                    "command": command_request.command,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "pending"
+                }
+            }
+        )
+        
+        return {
+            "message": "Command created successfully",
+            "device_id": device_id,
+            "command": command_request.command,
+            "status": "pending"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to create ESP32 command: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to create command")
+
+@router.get("/commands/all", response_model=List[Dict[str, Any]])
+async def get_all_pending_commands():
+    """Get all pending commands for all devices (for debugging)."""
+    try:
+        all_commands = []
+        for device_id, commands in pending_commands.items():
+            for command in commands:
+                all_commands.append({
+                    "device_id": device_id,
+                    **command
+                })
+        
+        return all_commands
+        
+    except Exception as exc:
+        logger.error("Failed to get all pending commands: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to get all commands")
 
 # Background task handlers
 async def handle_lid_open_sequence(device_id: str, duration_seconds: int, action_id: str):
@@ -293,7 +462,6 @@ async def handle_lid_open_sequence(device_id: str, duration_seconds: int, action
         db = await ensure_connection()
 
         # Update initial action as in progress
-        from bson import ObjectId
         logger.info("Updating action %s to in_progress", action_id)
         await db["esp32_logs"].update_one(
             {"_id": ObjectId(action_id)},
